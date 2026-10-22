@@ -1,6 +1,6 @@
 # Building Project:Atmos (Windows)
 
-Project:Atmos builds like OpenRCT2 (see the upstream notes in `docs/upstream/OpenRCT2-README.md`).
+Project:Atmos builds like OpenRCT2 (see the [OpenRCT2 readme](https://github.com/OpenRCT2/OpenRCT2#readme) for the dependencies).
 
 Requirements: Visual Studio 2022 with the *Desktop development with C++* workload (MSVC v143, Windows SDK) and an internet connection for the dependency download on the first build.
 
