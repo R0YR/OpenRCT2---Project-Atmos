@@ -4182,7 +4182,7 @@ namespace OpenRCT2::Ui::Windows
             const auto& shadowsWidget = widgets[WIDX_ATMOSPHERE_SHADOWS];
             drawText(
                 rt, windowPos + ScreenCoordsXY{ shadowsWidget.left + 14, shadowsWidget.top },
-                Atmosphere::RideShadows::kRenderingEnabled ? "Track- und Fahrzeugschatten" : "Track-Schatten pausiert", { colours[1] });
+                Atmosphere::RideShadows::kRenderingEnabled ? "Track and vehicle shadows" : "Track shadows paused", { colours[1] });
 
             // Locate mechanic button image
             Widget* widget = &widgets[WIDX_LOCATE_MECHANIC];

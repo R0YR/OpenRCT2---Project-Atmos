@@ -235,7 +235,7 @@ namespace OpenRCT2::Ui::Windows
         CoordsXY _dragStartPos{};
         /**
          * When placing fences in the air using Shift, the user may shift their mouse to the left or right.
-         * We save this position to avoid detecting a wall drag where there isnâ€™t one.
+         * We save this position to avoid detecting a wall drag where there isn’t one.
          */
         CoordsXY _dragStartHoverPos{};
         CoordsXY _dragEndPos{};
@@ -679,7 +679,7 @@ namespace OpenRCT2::Ui::Windows
         {
             if (widgetIndex == WIDX_SCENERY_FOLIAGE) {
                 auto args=Formatter();
-                args.Add<const char*>("Foliage: Windbewegung und fallendes Laub fuer alle Exemplare dieses Objekts. Auswahl wird gespeichert.");
+                args.Add<const char*>("Foliage: wind movement and falling leaves for all copies of this object. The choice is saved.");
                 return {STR_STRING,args};
             }
             if (widgetIndex >= WIDX_SCENERY_TAB_1)

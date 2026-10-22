@@ -16,4 +16,3 @@ Run it with:
 bin\openrct2.exe --user-data-path=userdata --openrct2-data-path=bin\data
 ```
 
-Project-specific tests and diagnostics are in `scripts/project-atmos-dev/`. Some of them expect local test parks and are meant for development only.

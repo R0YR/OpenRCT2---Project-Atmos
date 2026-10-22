@@ -58,7 +58,7 @@ Windows SmartScreen or your antivirus may warn about the unsigned `Project-Atmos
 
 - Shadows are a geometric approximation, not full 3D silhouettes.
 - Performance is not fully optimised yet. With every effect on, expect roughly 12 ms per frame at 1080p.
-- Technical notes and known limits: [`docs/project-atmos/`](docs/project-atmos/).
+- Code overview and known limits: [`docs/project-atmos/`](docs/project-atmos/README.md).
 
 ## Build
 
