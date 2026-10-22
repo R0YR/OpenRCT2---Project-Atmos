@@ -164,7 +164,7 @@ namespace OpenRCT2::Drawing
                 c.swayHeight = s.swayHeight;
                 c.swayPhase = s.swayPhase;
                 c.shadowFlagsPlane = p.shadowFlags;
-                c.shadowHeightPlane = nullptr; // silhouette shadows are parked (see ROADMAP 16)
+                c.shadowHeightPlane = nullptr; // silhouette shadows are disabled
                 c.shadowFlags = s.shadowFlags;
                 c.shadowGroundZ = s.shadowGroundZ;
                 c.receiverDepthPlane = p.receiverDepth;

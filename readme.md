@@ -66,6 +66,6 @@ See [`BUILDING.md`](BUILDING.md).
 
 ## License and credits
 
-Project:Atmos is licensed under the **GNU General Public License v3.0**, like OpenRCT2 (see [`licence.txt`](licence.txt)). The source of every release is the tagged commit of this repository. OpenRCT2 contributors are listed in [`contributors.md`](contributors.md); the upstream readme is kept in [`docs/upstream/OpenRCT2-README.md`](docs/upstream/OpenRCT2-README.md).
+Project:Atmos is licensed under the **GNU General Public License v3.0**, like OpenRCT2 (see [`licence.txt`](licence.txt)). The source of every release is the tagged commit of this repository. OpenRCT2 contributors are listed in [`contributors.md`](contributors.md); for everything else about the game see the [OpenRCT2 readme](https://github.com/OpenRCT2/OpenRCT2#readme).
 
 RollerCoaster Tycoon and RollerCoaster Tycoon 2 are trademarks of Atari / Chris Sawyer. All original game assets belong to their respective owners. Parks shown are by ROYR.
