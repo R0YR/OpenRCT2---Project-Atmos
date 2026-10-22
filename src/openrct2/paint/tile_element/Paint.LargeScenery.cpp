@@ -28,6 +28,7 @@
 #include "Paint.LargeScenery.h"
 #include "Paint.TileElement.h"
 #include "Segment.h"
+#include "ScenerySupports.h"
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::Drawing;
@@ -71,8 +72,12 @@ static void PaintLargeScenerySupports(
         transitionType = WoodenSupportTransitionType::scenery;
     }
 
-    WoodenBSupportsPaintSetupRotated(
-        session, WoodenSupportType::truss, WoodenSupportSubType::neSw, direction, supportHeight, imageTemplate, transitionType);
+    if (!ScenerySupportsAreBlocked(session))
+    {
+        WoodenBSupportsPaintSetupRotated(
+            session, WoodenSupportType::truss, WoodenSupportSubType::neSw, direction, supportHeight, imageTemplate,
+            transitionType);
+    }
 
     int32_t clearanceHeight = Numerics::ceil2(tileElement.getClearanceZ() + 15, 16);
     if (tile.allowSupportsAbove)

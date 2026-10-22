@@ -94,7 +94,7 @@ namespace OpenRCT2
          * Set to 3 when the window should flash and decremented per tick.
          */
         uint8_t flashTimer{};
-        ScrollArea scrolls[3];
+        ScrollArea scrolls[12];
         uint16_t numListItems{};    // 0 for no items
         int16_t selectedListItem{}; // -1 for none selected
         std::optional<Focus> focus;

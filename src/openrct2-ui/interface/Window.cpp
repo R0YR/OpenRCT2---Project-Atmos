@@ -7,6 +7,7 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "../drawing/Atmosphere.h"
 #include "Window.h"
 
 #include "../UiStringIds.h"
@@ -21,6 +22,7 @@
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/SpriteIds.h>
 #include <openrct2/config/Config.h>
+#include <openrct2/drawing/ColourMap.h>
 #include <openrct2/drawing/Rectangle.h>
 #include <openrct2/drawing/RenderTarget.h>
 #include <openrct2/interface/Viewport.h>
@@ -1032,8 +1034,15 @@ namespace OpenRCT2::Ui::Windows
     void WindowDrawWidgets(WindowBase& w, RenderTarget& rt)
     {
         if (w.flags.has(WindowFlag::transparent) && !w.flags.has(WindowFlag::noBackground))
-            Rectangle::filter(
-                rt, { w.windowPos, w.windowPos + ScreenCoordsXY{ w.width - 1, w.height - 1 } }, FilterPaletteID::palette51);
+        {
+            if (Ui::Atmosphere::OpaqueInterface())
+                Rectangle::fill(
+                    rt, { w.windowPos, w.windowPos + ScreenCoordsXY{ w.width - 1, w.height - 1 } },
+                    getColourMap(Colour::darkGreen).darker);
+            else
+                Rectangle::filter(
+                    rt, { w.windowPos, w.windowPos + ScreenCoordsXY{ w.width - 1, w.height - 1 } }, FilterPaletteID::palette51);
+        }
 
         // todo: some code missing here? Between 006EB18C and 006EB260
         for (WidgetIndex widgetIndex = 0; widgetIndex < w.widgets.size(); widgetIndex++)

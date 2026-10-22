@@ -41,6 +41,7 @@
 #include "../object/ObjectLimits.h"
 #include "../object/ObjectManager.h"
 #include "../object/ObjectRepository.h"
+#include "../peep/PeepAnimations.h"
 #include "../peep/RideUseSystem.h"
 #include "../rct12/RCT12.h"
 #include "../ride/RideManager.hpp"
@@ -118,6 +119,42 @@ namespace OpenRCT2
         bool OmitTracklessRides{};
 
     private:
+        // Guest appearances that no longer exist (older man and woman, curly hair): saves from earlier builds still list them.
+        // They are dropped from the required objects and their guests move to a model that exists (slot -> slot).
+        inline static std::vector<std::pair<ObjectEntryIndex, ObjectEntryIndex>> _retiredAnimationSlots;
+
+        static void RemapRetiredGuestAnimations(ObjectList& list)
+        {
+            _retiredAnimationSlots.clear();
+            auto& entries = list.GetList(ObjectType::peepAnimations);
+            const auto isCurrent = [](std::string_view id) {
+                return std::find(kAtmosphereGuestAnimationIdentifiers.begin(), kAtmosphereGuestAnimationIdentifiers.end(), id)
+                    != kAtmosphereGuestAnimationIdentifiers.end();
+            };
+            ObjectEntryIndex replacement = list.Find(ObjectType::peepAnimations, "rct2.peep_animations.guest");
+            if (replacement == kObjectEntryIndexNull)
+                replacement = list.Find(ObjectType::peepAnimations, kAtmosphereGuestAnimationIdentifiers[0]);
+            if (replacement == kObjectEntryIndexNull)
+                return;
+            for (size_t i = 0; i < entries.size(); i++)
+            {
+                const auto id = entries[i].GetName();
+                if (id.starts_with("atmosphere.peep_animations.") && !isCurrent(id))
+                {
+                    _retiredAnimationSlots.emplace_back(static_cast<ObjectEntryIndex>(i), replacement);
+                    entries[i] = ObjectEntryDescriptor{};
+                }
+            }
+        }
+
+        static ObjectEntryIndex RemapAnimationSlot(ObjectEntryIndex index)
+        {
+            for (const auto& [from, to] : _retiredAnimationSlots)
+                if (from == index)
+                    return to;
+            return index;
+        }
+
         std::unique_ptr<OrcaStream> _os;
         ObjectEntryIndex _pathToSurfaceMap[kMaxPathObjects];
         ObjectEntryIndex _pathToQueueSurfaceMap[kMaxPathObjects];
@@ -516,6 +553,7 @@ namespace OpenRCT2
                     AppendRequiredObjects(requiredObjects, ObjectType::climate, std::vector({ climateObjId }));
                 }
 
+                RemapRetiredGuestAnimations(requiredObjects);
                 RequiredObjects = std::move(requiredObjects);
             }
             else
@@ -1952,7 +1990,10 @@ namespace OpenRCT2
             cs.readWrite(entity.subState);
 
             if (version >= kPeepAnimationObjectsVersion)
+            {
                 cs.readWrite(entity.animationObjectIndex);
+                entity.animationObjectIndex = RemapAnimationSlot(entity.animationObjectIndex);
+            }
             else
                 entity.animationObjectIndex = kObjectEntryIndexNull;
 

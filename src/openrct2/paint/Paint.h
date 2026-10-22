@@ -69,6 +69,10 @@ struct PaintStruct
     uint16_t QuadrantIndex;
     uint8_t SortFlags;
     ViewportInteractionItem InteractionItem;
+    // Atmosphere fork: scene depth of this sprite, see drawing/DepthPlane.h
+    int32_t DepthValue;
+    int32_t DepthFlatBase;
+    bool DepthFlat;
 };
 
 struct PaintStringStruct

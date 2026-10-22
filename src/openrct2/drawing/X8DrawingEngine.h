@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "IDrawingContext.h"
 #include "IDrawingEngine.h"
 #include "InvalidationGrid.h"
@@ -62,6 +64,20 @@ namespace OpenRCT2
             size_t _bitsSize = 0;
             PaletteIndex* _bits = nullptr;
 
+            // Atmosphere fork: optional per-pixel scene depth, indexed exactly like _bits (see DepthPlane.h).
+            std::vector<uint16_t> _depth;
+            std::vector<uint16_t> _receiverDepth;
+            std::vector<uint8_t> _receiverFlags;
+            std::vector<uint8_t> _sway;
+            // Visible sprite surface type (ground, water, exterior), present whenever depth is enabled.
+            std::vector<uint8_t> _shadowFlags;
+            std::vector<uint16_t> _shadowHeight;
+            bool _depthEnabled = false;
+            bool _swayEnabled = false;
+            // Atmosphere fork: world-only copy of the frame (see WorldSnapshot in DepthPlane.h).
+            std::vector<PaletteIndex> _worldSnapshot;
+            bool _snapshotEnabled = false;
+
             RenderTarget _mainRT = {};
 
             bool _lastLightFXenabled = false;
@@ -106,6 +122,21 @@ namespace OpenRCT2
             RenderTarget* getRT() override;
             DrawingEngineFlags GetFlags() override;
             void InvalidateImage(uint32_t image) override;
+
+            // Atmosphere fork: starts/stops recording scene depth for world sprites and the world-only frame copy.
+            void SetAuxEnabled(bool depth, bool worldSnapshot, bool sway = false);
+            const uint16_t* GetDepthPlane() const
+            {
+                return _depthEnabled ? _depth.data() : nullptr;
+            }
+            const uint8_t* GetSwayPlane() const
+            {
+                return _depthEnabled && !_sway.empty() ? _sway.data() : nullptr;
+            }
+            const PaletteIndex* GetWorldSnapshot() const
+            {
+                return _snapshotEnabled ? _worldSnapshot.data() : nullptr;
+            }
 
         protected:
             void ConfigureBits(uint32_t width, uint32_t height, uint32_t pitch);

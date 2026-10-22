@@ -1,0 +1,9 @@
+# Scenery receivers and per-ride shadow preferences
+
+Visible scenery now has a dedicated receiver flag (16), distinct from ground/water. Visitors, staff and vehicles project bounded sun capsules at each scenery pixel’s native sprite depth. The full-resolution scenery coverage has soft edges, excludes receivers above the caster and is filtered with the world by tilt-shift. Scenery pixels do not receive the old ground-height shadow overlay. Ground/water receiver storage and cloud sampling are unchanged.
+
+The engine represents scenery with sprites and sorting boxes; receiving heights therefore use its existing depth approximation rather than an unavailable polygon mesh. This improves raised scenery floors and walls without adding a separate geometric model.
+
+The ride maintenance tab has a default-on checkbox “Track- und Fahrzeugschatten”. It controls both vehicle shadows (including scenery reception) and rail shadows. Cached track segments retain their RideId; the preference is evaluated during drawing, so toggles work immediately without rebuilding geometry. Preferences persist per park in the configured user directory, verified against ride type, name and build date. They do not alter park saves or network simulation.
+
+Validation: Release Project-Atmos-scenery-ride-shadows.exe built successfully. Native renderer tests pass at four rotations and five zoom levels, covering guest/vehicle scenery reception, picked guests, non-receivers, roofs above casters, live per-ride toggle, preference reload and replacement identity. Existing water/cloud/airborne-trail/depth/leaf tests pass. The Pacific park test toggles 254 rides and changes 38,156 shadow pixels with cached track geometry; guest visibility changes zero unrelated ground flags across 1,231,504 unchanged pixels. The beach view also passes ground invariance over 1,655,032 pixels. Existing park asset warnings concern duplicate scenery objects and RCT1 fallbacks.

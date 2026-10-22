@@ -10,19 +10,34 @@
 #include "Paint.h"
 
 #include "../Context.h"
+#include "../SpriteIds.h"
 #include "../config/Config.h"
 #include "../core/Money.hpp"
 #include "../core/Numerics.hpp"
+#include "../drawing/DepthPlane.h"
+#include "../drawing/AtmosphereFoliage.h"
+#include "../world/tile_element/WallElement.h"
 #include "../drawing/Drawing.Sprite.h"
 #include "../drawing/Drawing.String.h"
 #include "../drawing/Drawing.h"
 #include "../drawing/Font.h"
+#include "../drawing/G1Element.h"
+#include "../drawing/Palette.h"
 #include "../drawing/Line.h"
+#include "../entity/EntityBase.h"
 #include "../interface/Viewport.h"
 #include "../localisation/Currency.h"
 #include "../localisation/Formatting.h"
 #include "../localisation/LocalisationService.h"
+#include "../object/LargeSceneryEntry.h"
+#include "../object/Object.h"
+#include "../object/ObjectManager.h"
+#include "../object/SmallSceneryEntry.h"
 #include "../paint/Painter.h"
+#include "../world/tile_element/LargeSceneryElement.h"
+#include "../world/tile_element/SmallSceneryElement.h"
+#include "../world/tile_element/TileElement.h"
+#include "../world/Map.h"
 #include "../profiling/Profiling.h"
 #include "Boundbox.h"
 #include "Paint.Entity.h"
@@ -30,6 +45,12 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <fstream>
+#include <mutex>
+#include <cctype>
+#include <string>
+#include <string_view>
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::Drawing;
@@ -173,6 +194,42 @@ static constexpr CoordsXYZ RotateBoundBoxSize(const CoordsXYZ& bbSize, const uin
 /**
  * Extracted from 0x0098196c, 0x0098197c, 0x0098198c, 0x0098199c
  */
+// Atmosphere fork: records the scene depth of a freshly created paint struct.
+// D = xr + yr (map units, rotated by the view rotation) of the bounding box centre; ground-like sprites
+// (flat bounding box, not an entity) additionally vary with the screen row, see drawing/DepthPlane.h.
+static bool ShadowSpriteIsFlat(bool groundElement, int32_t boundsHeight, int32_t imageWidth, int32_t imageHeight)
+{
+    const bool wideAndLow = imageWidth >= 2 * imageHeight - 4;
+    // Thin sorting boxes do not turn tall building sprites into ground. Sloping ground/path diamonds can
+    // be taller than a flat diamond, while vertical terrain cliffs and path supports must remain upright.
+    return (boundsHeight <= 2 && (groundElement ? imageHeight <= imageWidth : wideAndLow))
+        || (groundElement && wideAndLow);
+}
+
+static void PaintStoreDepth(
+    PaintSession& session, PaintStruct* ps, const BoundBoxXYZ& boundBox, int32_t heightOffset, const G1Element& g1)
+{
+    const auto swappedRotation = DirectionFlipXAxis(session.CurrentRotation);
+    const CoordsXY centreRel = { boundBox.offset.x + boundBox.length.x / 2, boundBox.offset.y + boundBox.length.y / 2 };
+    auto centreWorld = CoordsXYZ{ centreRel.rotate(swappedRotation), boundBox.offset.z + heightOffset + boundBox.length.z / 2 };
+    centreWorld += session.SpritePosition;
+    const auto centreScreen = Translate3DTo2DWithZ(session.CurrentRotation, centreWorld);
+    ps->DepthValue = 2 * (centreScreen.y + centreWorld.z);
+    // Ground-like sprites vary with the screen row: flat bounding box, or a wide low image (diamond tiles such as paths).
+    const bool groundElement = ps->Element != nullptr
+        && (ps->Element->getType() == TileElementType::surface || ps->Element->getType() == TileElementType::path);
+    // Small scenery with an 8-unit object height has a 3-unit sorting box (height - 5).
+    // Custom paving uses these boxes; treating its low diamond as upright gives each row a false height.
+    const bool sceneryFloor = ps->Element != nullptr && ps->Element->getType() == TileElementType::smallScenery
+        && boundBox.length.z <= 3 && g1.width >= 2 * g1.height - 4;
+    // CurrentlyDrawnEntity is scratch state and may still point at the last guest when terrain is painted.
+    // The interaction type owns this sprite's classification; a stale pointer must not turn a whole
+    // following column of ground/water into upright geometry.
+    ps->DepthFlat = ps->InteractionItem != ViewportInteractionItem::entity
+        && (sceneryFloor || ShadowSpriteIsFlat(groundElement, boundBox.length.z, g1.width, g1.height));
+    ps->DepthFlatBase = 2 * (boundBox.offset.z + heightOffset);
+}
+
 static PaintStruct* CreateNormalPaintStruct(
     PaintSession& session, ImageId image_id, const CoordsXYZ& offset, const BoundBoxXYZ& boundBox)
 {
@@ -217,6 +274,7 @@ static PaintStruct* CreateNormalPaintStruct(
     ps->MapPos = session.MapPosition;
     ps->Element = session.CurrentlyDrawnTileElement;
     ps->Entity = session.CurrentlyDrawnEntity;
+    PaintStoreDepth(session, ps, boundBox, 0, *g1);
 
     return ps;
 }
@@ -265,6 +323,7 @@ static PaintStruct* CreateNormalPaintStructHeight(
     ps->MapPos = session.MapPosition;
     ps->Element = session.CurrentlyDrawnTileElement;
     ps->Entity = session.CurrentlyDrawnEntity;
+    PaintStoreDepth(session, ps, boundBox, height, *g1);
 
     return ps;
 }
@@ -695,6 +754,32 @@ static inline void PaintAttachedPS(RenderTarget& rt, PaintStruct* ps, ViewportFl
     }
 }
 
+// A single explicit object preference drives both wind coverage and leaf emission.
+static bool IsSwayingPlant(const PaintStruct* ps)
+{
+    const auto* element = ps->Element;
+    if (element == nullptr || ps->InteractionItem == ViewportInteractionItem::entity
+        || element->isGhost() || element->isInvisible())
+        return false;
+    // Native support sprites inherit their owner's element pointer; they are rigid geometry.
+    if (ps->image_id.GetIndex() < SPR_RCTC_G1_END)
+        return false;
+    switch (element->getType())
+    {
+        case TileElementType::smallScenery:
+            return AtmosphereFoliage::IsEnabled(ObjectType::smallScenery, element->asSmallScenery()->getEntryIndex());
+        case TileElementType::largeScenery:
+            return AtmosphereFoliage::IsEnabled(ObjectType::largeScenery, element->asLargeScenery()->getEntryIndex());
+        case TileElementType::wall:
+            return AtmosphereFoliage::IsEnabled(ObjectType::walls, element->asWall()->getEntryIndex());
+        default:
+            return false;
+    }
+}
+
+// Silhouette shadows (casters flagged while painting) are parked: ground made of scenery slabs shadowed itself.
+static bool kSilhouetteShadows = false;
+
 static inline void PaintDrawStruct(PaintSession& session, PaintStruct* ps)
 {
     auto screenPos = ps->ScreenPos;
@@ -708,6 +793,70 @@ static inline void PaintDrawStruct(PaintSession& session, PaintStruct* ps)
             {
                 screenPos.x = floor2(screenPos.x, 4);
                 screenPos.y = floor2(screenPos.y, 4);
+            }
+        }
+    }
+    if (gDepthPaint.active)
+    {
+        gDepthPaint.flat = ps->DepthFlat;
+        gDepthPaint.value = ps->DepthValue;
+        gDepthPaint.flatBase = ps->DepthFlatBase;
+        // Shadow casters: everything that stands up (scenery, walls, entrances, tracks, banners, path furniture) and the
+        // moving entities. Terrain and footpath sprites are ground and never cast.
+        gDepthPaint.shadowFlags = ps->DepthFlat ? kShadowReceiver : 0;
+        if (ps->InteractionItem != ViewportInteractionItem::entity && ps->Element != nullptr
+            && !ps->Element->isGhost() && !ps->Element->isInvisible())
+        {
+            const auto type = ps->Element->getType();
+            if (type == TileElementType::smallScenery || type == TileElementType::largeScenery
+                || type == TileElementType::wall || type == TileElementType::entrance)
+                gDepthPaint.shadowFlags |= kSceneryReceiver;
+        }
+        if (ps->DepthFlat && ps->InteractionItem == ViewportInteractionItem::water)
+            gDepthPaint.shadowFlags |= kWaterSurface;
+        if (ps->image_id.GetIndex() == SPR_BLANK_TILE)
+            gDepthPaint.shadowFlags = kExteriorSurface;
+        if (kSilhouetteShadows && ps->InteractionItem == ViewportInteractionItem::entity && ps->Entity != nullptr)
+        {
+            if (ps->Entity->type == EntityType::vehicle || ps->Entity->type == EntityType::guest
+                || ps->Entity->type == EntityType::staff)
+                gDepthPaint.shadowFlags = kShadowCaster;
+        }
+        else if (kSilhouetteShadows && ps->Element != nullptr && !ps->Element->isGhost() && !ps->Element->isInvisible() && !ps->DepthFlat)
+        {
+            // decided by what the sprite is (the element pointer can belong to the tile, not to this sprite)
+            switch (ps->InteractionItem)
+            {
+                case ViewportInteractionItem::scenery:
+                case ViewportInteractionItem::largeScenery:
+                case ViewportInteractionItem::wall:
+                case ViewportInteractionItem::parkEntrance:
+                case ViewportInteractionItem::ride:
+                case ViewportInteractionItem::banner:
+                case ViewportInteractionItem::pathAddition:
+                    gDepthPaint.shadowFlags = kShadowCaster;
+                    break;
+                default:
+                    break;
+            }
+        }
+        if ((gDepthPaint.shadowFlags & kShadowCaster) != 0)
+        {
+            // The shadow falls where the object stands: on the surface at its own base. Heights are measured from there,
+            // so ground made of scenery slabs (almost no height above their own base) never casts anything.
+            gDepthPaint.shadowGroundZ = (ps->InteractionItem == ViewportInteractionItem::entity && ps->Entity != nullptr)
+                ? ps->Entity->z
+                : ps->Element->getBaseZ();
+        }
+        gDepthPaint.sway = false;
+        if (gSwayEnabled.load(std::memory_order_relaxed) && session.rt.zoom_level <= ZoomLevel{ 1 } && IsSwayingPlant(ps))
+        {
+            if (const auto* g1 = GfxGetG1Element(ps->image_id); g1 != nullptr && g1->height > 8)
+            {
+                gDepthPaint.sway = true;
+                gDepthPaint.swayBottom = screenPos.y + g1->yOffset + g1->height;
+                gDepthPaint.swayHeight = g1->height;
+                gDepthPaint.swayPhase = static_cast<uint8_t>(((ps->MapPos.x >> 5) * 7 + (ps->MapPos.y >> 5) * 13) & 15);
             }
         }
     }
@@ -739,10 +888,13 @@ void PaintDrawStructs(PaintSession& session)
 {
     PROFILED_FUNCTION();
 
+    gDepthPaint.active = gDepthPlane.data != nullptr;
+    gDepthPaint.zoom = static_cast<int8_t>(session.rt.zoom_level);
     for (PaintStruct* ps = session.PaintHead; ps != nullptr; ps = ps->NextQuadrantEntry)
     {
         PaintDrawStruct(session, ps);
     }
+    gDepthPaint.active = false;
 }
 
 static void PaintPSImageWithBoundingBoxes(PaintSession& session, PaintStruct* ps, ImageId imageId, int32_t x, int32_t y)

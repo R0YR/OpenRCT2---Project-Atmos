@@ -8,6 +8,7 @@
  *****************************************************************************/
 
 #include "LightFX.h"
+#include "DepthPlane.h"
 
 #include "../Game.h"
 #include "../GameState.h"
@@ -138,7 +139,9 @@ namespace OpenRCT2::Drawing::LightFx
 
     bool IsAvailable()
     {
-        return _lightfxAvailable && Config::Get().general.enableLightFx;
+        // Atmosphere owns display and object lighting while active. Do not accumulate an unconsumed legacy list.
+        return _lightfxAvailable && Config::Get().general.enableLightFx
+            && !gAtmosphereOpaqueUi.load(std::memory_order_relaxed);
     }
 
     bool ForVehiclesIsAvailable()

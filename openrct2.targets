@@ -30,6 +30,7 @@
     <FontsInput Include="$(FontsInputFile)" />
     <TracksInput Include="$(TracksInputFile)" />
     <PalettesInput Include="$(PalettesInputFile)" />
+    <GuestDiversityObjects Include="$(ResourcesPath)guest-diversity\objects\*.parkobj" />
     
     <LanguageFiles Include="$(DataLanguagePath)**\*"
                    Exclude="$(DataLanguagePath)*.bak;
@@ -45,6 +46,20 @@
   </ItemGroup>
 
   <!-- Target Implementations -->
+  <Target Name="CopyProjectAtmosLogo" AfterTargets="Build">
+    <MakeDir Directories="$(DataOutputPath)" />
+    <Copy SourceFiles="$(ResourcesPath)project-atmos\project-atmos-logo.png"
+          DestinationFiles="$(DataOutputPath)project-atmos-logo.png" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyGuestDiversityObjects" AfterTargets="Build"
+          Inputs="@(GuestDiversityObjects)"
+          Outputs="@(GuestDiversityObjects->'$(DataOutputPath)object\atmosphere\peep_animations\%(Filename)%(Extension)')">
+    <MakeDir Directories="$(DataOutputPath)object\atmosphere\peep_animations" />
+    <Copy SourceFiles="@(GuestDiversityObjects)"
+          DestinationFiles="@(GuestDiversityObjects->'$(DataOutputPath)object\atmosphere\peep_animations\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
   <Target Name="CopyLanguageFiles"
           AfterTargets="Build"
           Inputs="@(LanguageFiles)"

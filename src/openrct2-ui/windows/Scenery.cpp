@@ -1,3 +1,4 @@
+#include <openrct2/drawing/Drawing.Screen.h>
 /*****************************************************************************
  * Copyright (c) 2014-2026 OpenRCT2 developers
  *
@@ -37,6 +38,7 @@
 #include <openrct2/core/Guard.hpp>
 #include <openrct2/core/String.hpp>
 #include <openrct2/drawing/ColourMap.h>
+#include <openrct2/drawing/AtmosphereFoliage.h>
 #include <openrct2/drawing/Drawing.h>
 #include <openrct2/drawing/Rectangle.h>
 #include <openrct2/drawing/RenderTarget.h>
@@ -108,6 +110,7 @@ namespace OpenRCT2::Ui::Windows
         WIDX_FILTER_TEXT_BOX,
         WIDX_FILTER_CLEAR_BUTTON,
         WIDX_RESTRICT_SCENERY,
+        WIDX_SCENERY_FOLIAGE,
         WIDX_SCENERY_TAB_1,
     };
 
@@ -130,7 +133,8 @@ namespace OpenRCT2::Ui::Windows
         makeWidget({609, 169}, { 24, 24}, WidgetType::flatBtn,   WindowColour::secondary, ImageId(SPR_SCENERY_CLUSTER), STR_SCENERY_CLUSTER_TIP    ), // 40000000  0x009DE478
         makeWidget({  4,  46}, {211, 14}, WidgetType::textBox,   WindowColour::secondary                                                           ),
         makeWidget({218,  46}, { 70, 14}, WidgetType::button,    WindowColour::secondary, STR_OBJECT_SEARCH_CLEAR                                  ),
-        makeWidget({539,  46}, { 70, 14}, WidgetType::button,    WindowColour::secondary, STR_RESTRICT_SCENERY,   STR_RESTRICT_SCENERY_TIP         )
+        makeWidget({539,  46}, { 70, 14}, WidgetType::button,    WindowColour::secondary, STR_RESTRICT_SCENERY,   STR_RESTRICT_SCENERY_TIP         ),
+        makeWidget({610, 198}, { 22, 13}, WidgetType::checkbox,  WindowColour::secondary, kStringIdNone)
     );
     // clang-format on
 
@@ -231,7 +235,7 @@ namespace OpenRCT2::Ui::Windows
         CoordsXY _dragStartPos{};
         /**
          * When placing fences in the air using Shift, the user may shift their mouse to the left or right.
-         * We save this position to avoid detecting a wall drag where there isn’t one.
+         * We save this position to avoid detecting a wall drag where there isnâ€™t one.
          */
         CoordsXY _dragStartHoverPos{};
         CoordsXY _dragEndPos{};
@@ -356,6 +360,18 @@ namespace OpenRCT2::Ui::Windows
                     scrolls->contentOffsetY = 0;
                     invalidate();
                     break;
+                case WIDX_SCENERY_FOLIAGE:
+                {
+                    const auto selection=GetSelectedScenery(_activeTabIndex);
+                    if (!selection.IsUndefined()) {
+                        const auto type=GetObjectTypeFromSceneryType(selection.SceneryType);
+                        auto& objects=GetContext()->GetObjectManager();
+                        if (AtmosphereFoliage::SetEnabled(objects,type,selection.EntryIndex,
+                            !AtmosphereFoliage::IsEnabled(type,selection.EntryIndex))) GfxInvalidateScreen();
+                    }
+                    invalidate();
+                    break;
+                }
                 case WIDX_RESTRICT_SCENERY:
                 {
                     const auto tabIndex = _activeTabIndex;
@@ -661,6 +677,11 @@ namespace OpenRCT2::Ui::Windows
 
         StringWithArgs onTooltip(const WidgetIndex widgetIndex, const StringId fallback) override
         {
+            if (widgetIndex == WIDX_SCENERY_FOLIAGE) {
+                auto args=Formatter();
+                args.Add<const char*>("Foliage: Windbewegung und fallendes Laub fuer alle Exemplare dieses Objekts. Auswahl wird gespeichert.");
+                return {STR_STRING,args};
+            }
             if (widgetIndex >= WIDX_SCENERY_TAB_1)
             {
                 const auto tabIndex = static_cast<size_t>(widgetIndex - WIDX_SCENERY_TAB_1);
@@ -695,6 +716,7 @@ namespace OpenRCT2::Ui::Windows
 
         void onPrepareDraw() override
         {
+            if (AtmosphereFoliage::SyncProfile(GetContext()->GetObjectManager())) GfxInvalidateScreen();
             _actualMinHeight = GetMinimumHeight();
 
             // Set the window title
@@ -728,6 +750,10 @@ namespace OpenRCT2::Ui::Windows
             widgets[WIDX_RESTRICT_SCENERY].setHidden();
 
             const auto tabSelectedScenery = GetSelectedScenery(tabIndex);
+            const auto foliageType=tabSelectedScenery.IsUndefined() ? ObjectType::count
+                : GetObjectTypeFromSceneryType(tabSelectedScenery.SceneryType);
+            setWidgetDisabled(WIDX_SCENERY_FOLIAGE, AtmosphereFoliage::TypeIndex(foliageType)<0);
+            setWidgetPressed(WIDX_SCENERY_FOLIAGE, AtmosphereFoliage::IsEnabled(foliageType,tabSelectedScenery.EntryIndex));
             if (!tabSelectedScenery.IsUndefined())
             {
                 if (tabSelectedScenery.SceneryType == SCENERY_TYPE_SMALL)
@@ -873,6 +899,8 @@ namespace OpenRCT2::Ui::Windows
             widgets[WIDX_SCENERY_REPAINT_SCENERY_BUTTON].right = windowWidth - 2;
             widgets[WIDX_SCENERY_EYEDROPPER_BUTTON].right = windowWidth - 2;
             widgets[WIDX_SCENERY_BUILD_CLUSTER_BUTTON].right = windowWidth - 2;
+            widgets[WIDX_SCENERY_FOLIAGE].left = windowWidth - 24;
+            widgets[WIDX_SCENERY_FOLIAGE].right = windowWidth - 3;
 
             widgets[WIDX_SCENERY_PRIMARY_COLOUR_BUTTON].left = windowWidth - 19;
             widgets[WIDX_SCENERY_SECONDARY_COLOUR_BUTTON].left = windowWidth - 19;
@@ -890,6 +918,12 @@ namespace OpenRCT2::Ui::Windows
         {
             drawWidgets(rt);
             DrawTabs(rt, windowPos);
+            const auto& foliage=widgets[WIDX_SCENERY_FOLIAGE];
+            const auto leaf=windowPos+ScreenCoordsXY{foliage.left+14,foliage.top+2};
+            const auto green=getColourMap(Colour::darkGreen);
+            Rectangle::fill(rt,{leaf.x+2,leaf.y,leaf.x+4,leaf.y+6},green.dark);
+            Rectangle::fill(rt,{leaf.x,leaf.y+2,leaf.x+5,leaf.y+4},green.midLight);
+            Rectangle::fill(rt,{leaf.x+2,leaf.y+2,leaf.x+3,leaf.y+7},green.midDark);
 
             auto selectedSceneryEntry = _selectedScenery;
             if (selectedSceneryEntry.IsUndefined())
@@ -1117,7 +1151,7 @@ namespace OpenRCT2::Ui::Windows
             // And at least 1.5 rows of scenery items
             newMinHeight += 1.5 * kSceneryButtonHeight;
 
-            return newMinHeight;
+            return std::max<int32_t>(newMinHeight,widgets[WIDX_SCENERY_FOLIAGE].bottom+3);
         }
 
         int32_t GetNumColumns() const
@@ -1474,6 +1508,8 @@ namespace OpenRCT2::Ui::Windows
                 widgets[WIDX_SCENERY_EYEDROPPER_BUTTON].bottom += shiftAmount;
                 widgets[WIDX_SCENERY_BUILD_CLUSTER_BUTTON].top += shiftAmount;
                 widgets[WIDX_SCENERY_BUILD_CLUSTER_BUTTON].bottom += shiftAmount;
+                widgets[WIDX_SCENERY_FOLIAGE].top += shiftAmount;
+                widgets[WIDX_SCENERY_FOLIAGE].bottom += shiftAmount;
                 widgets[WIDX_FILTER_TEXT_BOX].top += shiftAmount;
                 widgets[WIDX_FILTER_TEXT_BOX].bottom += shiftAmount;
                 widgets[WIDX_FILTER_CLEAR_BUTTON].top += shiftAmount;

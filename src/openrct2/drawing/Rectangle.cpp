@@ -7,6 +7,7 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "DepthPlane.h"
 #include "Rectangle.h"
 
 #include "../interface/ColourWithFlags.h"
@@ -51,7 +52,7 @@ namespace OpenRCT2::Drawing::Rectangle
         const auto leftBottom = ScreenCoordsXY{ rect.getLeft(), rect.getBottom() };
         const auto rightTop = ScreenCoordsXY{ rect.getRight(), rect.getTop() };
         const auto rightBottom = ScreenCoordsXY{ rect.getRight(), rect.getBottom() };
-        if (colour.flags.has(ColourFlag::translucent))
+        if (colour.flags.has(ColourFlag::translucent) && !gAtmosphereOpaqueUi.load(std::memory_order_relaxed))
         {
             auto palette = kTranslucentWindowPalettes[EnumValue(colour.colour)];
 

@@ -68,6 +68,8 @@ namespace OpenRCT2
             return static_cast<uint32_t>(_entries.size());
         }
         void AddImage(const G1Element* g1);
+        // Replace an independently owned JSON image before it is registered with the renderer.
+        void ReplaceImage(size_t index, const G1Element& image);
         void addPalette(const G1Palette& g1);
     };
 } // namespace OpenRCT2

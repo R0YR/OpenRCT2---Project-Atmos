@@ -208,6 +208,7 @@ namespace OpenRCT2::Ui::Windows
 
     // Options
     WindowBase* OptionsOpen();
+    WindowBase* AtmosphereWindowOpen();
 
     // OverwritePrompt
     WindowBase* WindowOverwritePromptOpen(

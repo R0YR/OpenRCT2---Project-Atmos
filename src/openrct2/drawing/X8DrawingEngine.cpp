@@ -9,6 +9,8 @@
 
 #include "X8DrawingEngine.h"
 
+#include "DepthPlane.h"
+
 #include "../config/Config.h"
 #include "../core/Guard.hpp"
 #include "../core/Numerics.hpp"
@@ -131,6 +133,10 @@ X8DrawingEngine::X8DrawingEngine([[maybe_unused]] IUiContext& uiContext)
 
 X8DrawingEngine::~X8DrawingEngine()
 {
+    if (gDepthPlane.base == _bits)
+        gDepthPlane = {};
+    if (gWorldSnapshot.base == _bits)
+        gWorldSnapshot = {};
     delete _drawingContext;
     delete[] _bits;
 }
@@ -245,6 +251,186 @@ void X8DrawingEngine::CopyRect(int32_t x, int32_t y, int32_t width, int32_t heig
         to += stride;
         from += stride;
     }
+
+    // Atmosphere fork: scroll the depth plane together with the pixels it describes.
+    if (_depthEnabled && !_depth.empty())
+    {
+        int32_t depthStride = _mainRT.LineStride();
+        uint16_t* depthTo = _depth.data() + y * depthStride + x;
+        uint16_t* depthFrom = _depth.data() + (y - dy) * depthStride + x - dx;
+        if (dy > 0)
+        {
+            depthTo += (height - 1) * depthStride;
+            depthFrom += (height - 1) * depthStride;
+            depthStride = -depthStride;
+        }
+        for (int32_t i = 0; i < height; i++)
+        {
+            memmove(depthTo, depthFrom, static_cast<size_t>(width) * sizeof(uint16_t));
+            depthTo += depthStride;
+            depthFrom += depthStride;
+        }
+    }
+
+    if (_depthEnabled && !_receiverDepth.empty())
+    {
+        int32_t receiverStride = _mainRT.LineStride();
+        auto* receiverTo = _receiverDepth.data() + y * receiverStride + x;
+        auto* receiverFrom = _receiverDepth.data() + (y - dy) * receiverStride + x - dx;
+        if (dy > 0)
+        {
+            receiverTo += (height - 1) * receiverStride;
+            receiverFrom += (height - 1) * receiverStride;
+            receiverStride = -receiverStride;
+        }
+        for (int32_t i = 0; i < height; i++)
+        {
+            memmove(receiverTo, receiverFrom, static_cast<size_t>(width) * sizeof(uint16_t));
+            receiverTo += receiverStride;
+            receiverFrom += receiverStride;
+        }
+    }
+
+    if (_depthEnabled && !_receiverFlags.empty())
+    {
+        int32_t receiverStride = _mainRT.LineStride();
+        auto* receiverTo = _receiverFlags.data() + y * receiverStride + x;
+        auto* receiverFrom = _receiverFlags.data() + (y - dy) * receiverStride + x - dx;
+        if (dy > 0)
+        {
+            receiverTo += (height - 1) * receiverStride;
+            receiverFrom += (height - 1) * receiverStride;
+            receiverStride = -receiverStride;
+        }
+        for (int32_t i = 0; i < height; i++)
+        {
+            memmove(receiverTo, receiverFrom, static_cast<size_t>(width));
+            receiverTo += receiverStride;
+            receiverFrom += receiverStride;
+        }
+    }
+
+    if (_depthEnabled && !_sway.empty())
+    {
+        int32_t swayStride = _mainRT.LineStride();
+        uint8_t* swayTo = _sway.data() + y * swayStride + x;
+        uint8_t* swayFrom = _sway.data() + (y - dy) * swayStride + x - dx;
+        if (dy > 0)
+        {
+            swayTo += (height - 1) * swayStride;
+            swayFrom += (height - 1) * swayStride;
+            swayStride = -swayStride;
+        }
+        for (int32_t i = 0; i < height; i++)
+        {
+            memmove(swayTo, swayFrom, width);
+            swayTo += swayStride;
+            swayFrom += swayStride;
+        }
+    }
+
+    if (_depthEnabled && !_shadowFlags.empty())
+    {
+        int32_t shadowStride = _mainRT.LineStride();
+        auto* flagsTo = _shadowFlags.data() + y * shadowStride + x;
+        auto* flagsFrom = _shadowFlags.data() + (y - dy) * shadowStride + x - dx;
+        if (dy > 0)
+        {
+            flagsTo += (height - 1) * shadowStride;
+            flagsFrom += (height - 1) * shadowStride;
+            shadowStride = -shadowStride;
+        }
+        for (int32_t i = 0; i < height; i++)
+        {
+            memmove(flagsTo, flagsFrom, static_cast<size_t>(width));
+            flagsTo += shadowStride;
+            flagsFrom += shadowStride;
+        }
+    }
+
+    if (_depthEnabled && !_shadowHeight.empty())
+    {
+        int32_t shadowStride = _mainRT.LineStride();
+        auto* heightTo = _shadowHeight.data() + y * shadowStride + x;
+        auto* heightFrom = _shadowHeight.data() + (y - dy) * shadowStride + x - dx;
+        if (dy > 0)
+        {
+            heightTo += (height - 1) * shadowStride;
+            heightFrom += (height - 1) * shadowStride;
+            shadowStride = -shadowStride;
+        }
+        for (int32_t i = 0; i < height; i++)
+        {
+            memmove(heightTo, heightFrom, static_cast<size_t>(width) * sizeof(uint16_t));
+            heightTo += shadowStride;
+            heightFrom += shadowStride;
+        }
+    }
+
+    if (_snapshotEnabled && !_worldSnapshot.empty())
+    {
+        int32_t snapStride = _mainRT.LineStride();
+        PaletteIndex* snapTo = _worldSnapshot.data() + y * snapStride + x;
+        PaletteIndex* snapFrom = _worldSnapshot.data() + (y - dy) * snapStride + x - dx;
+        if (dy > 0)
+        {
+            snapTo += (height - 1) * snapStride;
+            snapFrom += (height - 1) * snapStride;
+            snapStride = -snapStride;
+        }
+        for (int32_t i = 0; i < height; i++)
+        {
+            memmove(snapTo, snapFrom, width);
+            snapTo += snapStride;
+            snapFrom += snapStride;
+        }
+    }
+}
+
+void X8DrawingEngine::SetAuxEnabled(bool depth, bool worldSnapshot, bool sway)
+{
+    sway = sway && depth;
+    if (depth == _depthEnabled && worldSnapshot == _snapshotEnabled && sway == _swayEnabled)
+        return;
+    _depthEnabled = depth;
+    _snapshotEnabled = worldSnapshot;
+    _swayEnabled = sway;
+    if (depth)
+    {
+        _depth.assign(_bitsSize, kDepthUnknown);
+        _receiverDepth.assign(_bitsSize, kDepthUnknown);
+        _receiverFlags.assign(_bitsSize, 0);
+        if (sway)
+            _sway.assign(_bitsSize, 0);
+        else
+            std::vector<uint8_t>().swap(_sway);
+        // Visible surface flags also identify native water and blank exterior tiles. Silhouette heights stay parked.
+        _shadowFlags.assign(_bitsSize, 0);
+        gDepthPlane = { _depth.data(), _bits, _bitsSize, sway ? _sway.data() : nullptr, _shadowFlags.data(), nullptr,
+            _receiverDepth.data(), _receiverFlags.data() };
+    }
+    else
+    {
+        gDepthPlane = {};
+        std::vector<uint16_t>().swap(_depth);
+        std::vector<uint16_t>().swap(_receiverDepth);
+        std::vector<uint8_t>().swap(_receiverFlags);
+        std::vector<uint8_t>().swap(_sway);
+        std::vector<uint8_t>().swap(_shadowFlags);
+        std::vector<uint16_t>().swap(_shadowHeight);
+    }
+    if (worldSnapshot)
+    {
+        _worldSnapshot.assign(_bitsSize, PaletteIndex::transparent);
+        gWorldSnapshot = { _worldSnapshot.data(), _bits, _bitsSize };
+    }
+    else
+    {
+        gWorldSnapshot = {};
+        std::vector<PaletteIndex>().swap(_worldSnapshot);
+    }
+    // Repaint everything once so the new planes get filled.
+    Invalidate(0, 0, static_cast<int32_t>(_width), static_cast<int32_t>(_height));
 }
 
 std::string X8DrawingEngine::Screenshot()
@@ -317,6 +503,24 @@ void X8DrawingEngine::ConfigureBits(uint32_t width, uint32_t height, uint32_t pi
     _width = width;
     _height = height;
     _pitch = pitch;
+
+    if (_depthEnabled)
+    {
+        // The frame buffer was reallocated; the depth plane is rebuilt by the full repaint that follows.
+        _depth.assign(_bitsSize, kDepthUnknown);
+        _receiverDepth.assign(_bitsSize, kDepthUnknown);
+        _receiverFlags.assign(_bitsSize, 0);
+        if (_swayEnabled)
+            _sway.assign(_bitsSize, 0);
+        _shadowFlags.assign(_bitsSize, 0);
+        gDepthPlane = { _depth.data(), _bits, _bitsSize, _swayEnabled ? _sway.data() : nullptr, _shadowFlags.data(), nullptr,
+            _receiverDepth.data(), _receiverFlags.data() };
+    }
+    if (_snapshotEnabled)
+    {
+        _worldSnapshot.assign(_bitsSize, PaletteIndex::transparent);
+        gWorldSnapshot = { _worldSnapshot.data(), _bits, _bitsSize };
+    }
 
     RenderTarget* rt = &_mainRT;
     rt->bits = _bits;

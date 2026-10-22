@@ -14,7 +14,9 @@
 #include "../drawing/ImageIndexType.h"
 #include "../entity/Peep.h"
 
+#include <array>
 #include <string>
+#include <string_view>
 #include <vector>
 
 enum class RCT12PeepAnimationGroup : uint8_t;
@@ -80,6 +82,17 @@ namespace OpenRCT2
 
     ObjectEntryIndex findRandomPeepAnimationsIndexForType(AnimationPeepType type);
 
+    inline constexpr std::array<std::string_view, 5> kAtmosphereGuestAnimationIdentifiers = {
+        "atmosphere.peep_animations.woman_bob",
+        "atmosphere.peep_animations.woman_ponytail",
+        "atmosphere.peep_animations.woman_longhair",
+        "atmosphere.peep_animations.child_girl",
+        "atmosphere.peep_animations.child_boy",
+    };
+
+    ObjectEntryIndex findGuestAnimationsBasisIndex();
+    ObjectEntryIndex findRandomGuestAnimationsIndex();
+
     struct AnimationGroupResult
     {
         ObjectEntryIndex objectId;
@@ -101,5 +114,5 @@ namespace OpenRCT2
 
     std::vector<AvailableCostume> getAvailableCostumeStrings(AnimationPeepType type);
 
-    SpriteBounds inferMaxAnimationDimensions(const PeepAnimation& anim);
+    SpriteBounds inferMaxAnimationDimensions(const PeepAnimation& anim, uint8_t rotations = 1);
 } // namespace OpenRCT2

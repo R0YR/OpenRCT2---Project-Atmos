@@ -7,6 +7,8 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "../drawing/Atmosphere.h"
+
 #include <openrct2-ui/interface/Theme.h>
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/interface/Window.h>
@@ -15,6 +17,7 @@
 #include <openrct2/GameState.h>
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/drawing/Rectangle.h>
+#include <openrct2/drawing/ColourMap.h>
 #include <openrct2/drawing/Text.h>
 #include <openrct2/localisation/StringIds.h>
 #include <openrct2/management/NewsItem.h>
@@ -128,7 +131,10 @@ namespace OpenRCT2::Ui::Windows
                 // Draw grey background
                 auto leftTop = windowPos + ScreenCoordsXY{ middleWidget.left, middleWidget.top };
                 auto rightBottom = windowPos + ScreenCoordsXY{ middleWidget.right, middleWidget.bottom };
-                Rectangle::filter(rt, { leftTop, rightBottom }, FilterPaletteID::palette51);
+                if (Ui::Atmosphere::OpaqueInterface())
+                    Rectangle::fill(rt, { leftTop, rightBottom }, getColourMap(Colour::darkGreen).darker);
+                else
+                    Rectangle::filter(rt, { leftTop, rightBottom }, FilterPaletteID::palette51);
             }
 
             drawWidgets(rt);

@@ -10,6 +10,7 @@
 #pragma once
 
 #include "../core/CallingConventions.h"
+#include "DepthPlane.h"
 #include "G1Element.h"
 #include "ImageId.hpp"
 #include "PaletteIndex.h"
@@ -136,6 +137,49 @@ bool FASTCALL BlitPixel(
     {
         *dst = *src;
         return true;
+    }
+}
+
+// Blits one pixel and, if the pixel was written and depth recording is active, stores the sprite depth for it.
+// Translucent blends (kBlendDst) keep the depth of whatever is behind them.
+template<DrawBlendOp TBlendOp>
+inline void FASTCALL BlitPixelDepth(
+    const OpenRCT2::Drawing::PaletteIndex* src, OpenRCT2::Drawing::PaletteIndex* dst,
+    const OpenRCT2::Drawing::PaletteMap& paletteMap, const OpenRCT2::Drawing::DepthBlitCtx& depth, uint16_t rowDepth,
+    uint8_t rowSway = 0, uint16_t rowShadowHeight = 0)
+{
+    const bool written = BlitPixel<TBlendOp>(src, dst, paletteMap);
+    // Water is a real horizontal receiver even when its colour blends with the lake bed. Glass retains the
+    // underlying depth, but water must record its surface height and stable coverage for post-processing.
+    bool recordDepth = (depth.shadowFlags & OpenRCT2::Drawing::kWaterSurface) != 0;
+    if constexpr ((TBlendOp & kBlendDst) == 0)
+        recordDepth = true;
+    if (recordDepth)
+    {
+        if (written && depth.plane != nullptr)
+        {
+            *depth.At(dst) = rowDepth;
+            if (depth.swayPlane != nullptr)
+                *depth.SwayAt(dst) = rowSway;
+            if (depth.shadowFlagsPlane != nullptr)
+                *depth.ShadowFlagsAt(dst) = depth.shadowFlags;
+            if (depth.shadowHeightPlane != nullptr)
+                *depth.ShadowHeightAt(dst) = rowShadowHeight;
+            if (depth.receiverDepthPlane != nullptr)
+            {
+                if ((depth.shadowFlags & OpenRCT2::Drawing::kExteriorSurface) != 0)
+                    *depth.ReceiverDepthAt(dst) = OpenRCT2::Drawing::kDepthUnknown;
+                else if ((depth.shadowFlags & (OpenRCT2::Drawing::kShadowReceiver | OpenRCT2::Drawing::kWaterSurface)) != 0)
+                    *depth.ReceiverDepthAt(dst) = rowDepth;
+            }
+            if (depth.receiverFlagsPlane != nullptr)
+            {
+                if ((depth.shadowFlags & OpenRCT2::Drawing::kExteriorSurface) != 0)
+                    *depth.ReceiverFlagsAt(dst) = 0;
+                else if ((depth.shadowFlags & (OpenRCT2::Drawing::kShadowReceiver | OpenRCT2::Drawing::kWaterSurface)) != 0)
+                    *depth.ReceiverFlagsAt(dst) = depth.shadowFlags;
+            }
+        }
     }
 }
 

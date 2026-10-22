@@ -11,6 +11,7 @@
 #include "RenderTarget.h"
 
 #include <cassert>
+#include <algorithm>
 #include <cstring>
 
 using namespace OpenRCT2::Drawing;
@@ -27,10 +28,14 @@ static void FASTCALL DrawRLESpriteMagnify(RenderTarget& rt, const DrawSpriteArgs
     auto height = args.Height;
     auto zoom = rt.zoom_level;
     auto dstLineWidth = rt.LineStride();
+    const auto depth = DepthBlitCtx::Make(rt);
 
     for (int32_t y = 0; y < height; y++)
     {
         PaletteIndex* nextDst = dst + dstLineWidth;
+        const uint16_t rowDepth = depth.plane != nullptr ? depth.RowDepth(rt, dst) : 0;
+        const uint8_t rowSway = depth.plane != nullptr ? depth.RowSway(rt, dst) : 0;
+        const uint16_t rowShadowHeight = depth.plane != nullptr ? depth.RowShadowHeight(rt, dst, rowDepth) : 0;
         const int32_t rowNum = zoom.ApplyTo(srcY + y);
         uint16_t lineOffset;
         std::memcpy(&lineOffset, &imgData[rowNum * sizeof(uint16_t)], sizeof(uint16_t));
@@ -52,7 +57,8 @@ static void FASTCALL DrawRLESpriteMagnify(RenderTarget& rt, const DrawSpriteArgs
                 numPixels &= 0x7F;
             }
             if (pixelRunStart <= colNum && colNum < pixelRunStart + numPixels)
-                BlitPixel<TBlendOp>(reinterpret_cast<const PaletteIndex*>(data8 + colNum - pixelRunStart), dst, paletteMap);
+                BlitPixelDepth<TBlendOp>(
+                    reinterpret_cast<const PaletteIndex*>(data8 + colNum - pixelRunStart), dst, paletteMap, depth, rowDepth, rowSway, rowShadowHeight);
             dst++;
         }
 
@@ -71,6 +77,7 @@ static void FASTCALL DrawRLESpriteMinify(RenderTarget& rt, const DrawSpriteArgs&
     auto height = args.Height;
     auto zoom = 1 << TZoom;
     auto dstLineWidth = static_cast<size_t>(rt.LineStride());
+    const auto depth = DepthBlitCtx::Make(rt);
 
     // Move up to the first line of the image if source_y_start is negative. Why does this even occur?
     if (srcY < 0)
@@ -90,6 +97,9 @@ static void FASTCALL DrawRLESpriteMinify(RenderTarget& rt, const DrawSpriteArgs&
         uint16_t lineOffset = src0[y * 2] | (src0[y * 2 + 1] << 8);
         auto nextRun = src0 + lineOffset;
         auto* dstLineStart = reinterpret_cast<PaletteIndex*>(dst0 + dstLineWidth * (i >> TZoom));
+        const uint16_t rowDepth = depth.plane != nullptr ? depth.RowDepth(rt, dstLineStart) : 0;
+        const uint8_t rowSway = depth.plane != nullptr ? depth.RowSway(rt, dstLineStart) : 0;
+        const uint16_t rowShadowHeight = depth.plane != nullptr ? depth.RowShadowHeight(rt, dstLineStart, rowDepth) : 0;
 
         // For every data chunk in the line
         auto isEndOfLine = false;
@@ -138,6 +148,30 @@ static void FASTCALL DrawRLESpriteMinify(RenderTarget& rt, const DrawSpriteArgs&
                 if (numPixels > 0)
                 {
                     std::memcpy(dst, src, numPixels);
+                    if (depth.plane != nullptr)
+                    {
+                        std::fill_n(depth.At(dst), numPixels, rowDepth);
+                        if (depth.swayPlane != nullptr)
+                            std::fill_n(depth.SwayAt(dst), numPixels, rowSway);
+                        if (depth.shadowFlagsPlane != nullptr)
+                            std::fill_n(depth.ShadowFlagsAt(dst), numPixels, depth.shadowFlags);
+                        if (depth.shadowHeightPlane != nullptr)
+                            std::fill_n(depth.ShadowHeightAt(dst), numPixels, rowShadowHeight);
+                        if (depth.receiverDepthPlane != nullptr)
+                        {
+                            if ((depth.shadowFlags & kExteriorSurface) != 0)
+                                std::fill_n(depth.ReceiverDepthAt(dst), numPixels, kDepthUnknown);
+                            else if ((depth.shadowFlags & (kShadowReceiver | kWaterSurface)) != 0)
+                                std::fill_n(depth.ReceiverDepthAt(dst), numPixels, rowDepth);
+                        }
+                        if (depth.receiverFlagsPlane != nullptr)
+                        {
+                            if ((depth.shadowFlags & kExteriorSurface) != 0)
+                                std::fill_n(depth.ReceiverFlagsAt(dst), numPixels, 0);
+                            else if ((depth.shadowFlags & (kShadowReceiver | kWaterSurface)) != 0)
+                                std::fill_n(depth.ReceiverFlagsAt(dst), numPixels, depth.shadowFlags);
+                        }
+                    }
                 }
             }
             else
@@ -145,7 +179,7 @@ static void FASTCALL DrawRLESpriteMinify(RenderTarget& rt, const DrawSpriteArgs&
                 auto& paletteMap = args.PalMap;
                 while (numPixels > 0)
                 {
-                    BlitPixel<TBlendOp>(reinterpret_cast<PaletteIndex*>(src), dst, paletteMap);
+                    BlitPixelDepth<TBlendOp>(reinterpret_cast<PaletteIndex*>(src), dst, paletteMap, depth, rowDepth, rowSway, rowShadowHeight);
                     numPixels -= zoom;
                     src += zoom;
                     dst++;

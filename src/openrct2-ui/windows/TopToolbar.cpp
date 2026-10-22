@@ -8,6 +8,10 @@
  *****************************************************************************/
 
 #include "../UiContext.h"
+#include "../drawing/Atmosphere.h"
+#include "OptionsAtmosphere.h"
+#include <openrct2/drawing/ColourMap.h>
+#include <openrct2/drawing/Rectangle.h>
 #include "../interface/InGameConsole.h"
 #include "../scripting/CustomMenu.h"
 
@@ -85,6 +89,9 @@ namespace OpenRCT2::Ui::Windows
         WIDX_NEWS,
         WIDX_NETWORK,
         WIDX_CHAT,
+
+        WIDX_ATMOSPHERE,
+        WIDX_CINEMA,
 
         WIDX_SEPARATOR,
     };
@@ -192,6 +199,8 @@ namespace OpenRCT2::Ui::Windows
         WIDX_CHAT,
         WIDX_CHEATS,
         WIDX_DEBUG,
+        WIDX_ATMOSPHERE,
+        WIDX_CINEMA,
 
         WIDX_SEPARATOR,
 
@@ -265,6 +274,8 @@ namespace OpenRCT2::Ui::Windows
         makeRemapWidget({ 30, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::quaternary, SPR_TAB_TOOLBAR,            STR_SHOW_RECENT_MESSAGES_TIP      ), // News
         makeRemapWidget({ 30, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::primary   , SPR_G2_TOOLBAR_MULTIPLAYER, STR_SHOW_MULTIPLAYER_STATUS_TIP   ), // Network
         makeRemapWidget({ 30, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::primary   , SPR_TAB_TOOLBAR,            STR_TOOLBAR_CHAT_TIP              ), // Chat
+        makeRemapWidget({ 30, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::primary   , SPR_TAB_TOOLBAR,            kStringIdNone                     ), // Atmosphere
+        makeRemapWidget({ 30, 0}, {30, kTopToolbarHeight + 1}, WidgetType::trnBtn, WindowColour::primary   , SPR_TAB_TOOLBAR,            kStringIdNone                     ), // Cinema
         makeWidget     ({  0, 0}, {10,                     1}, WidgetType::empty,  WindowColour::primary                                                                   )  // Artificial widget separator
     );
     // clang-format on
@@ -858,6 +869,13 @@ namespace OpenRCT2::Ui::Windows
                 case WIDX_MUTE:
                     Audio::ToggleAllSounds();
                     break;
+                case WIDX_ATMOSPHERE:
+                    Ui::Atmosphere::SetPendingOptionsSubPage(0);
+                    AtmosphereWindowOpen();
+                    break;
+                case WIDX_CINEMA:
+                    Ui::Atmosphere::SetCinemaActive(!Ui::Atmosphere::CinemaActive());
+                    break;
                 case WIDX_CHAT:
                     if (ChatAvailable())
                     {
@@ -1087,6 +1105,10 @@ namespace OpenRCT2::Ui::Windows
             auto& config = Config::Get().interface;
 
             widgets[WIDX_MUTE].setVisible(config.toolbarShowMute);
+            widgets[WIDX_ATMOSPHERE].setVisible(true);
+            widgets[WIDX_CINEMA].setVisible(true);
+            widgets[WIDX_ATMOSPHERE].setTooltip("Atmosphere settings");
+            widgets[WIDX_CINEMA].setTooltip("Cinema mode: black bars and smooth camera (Esc to leave)");
             widgets[WIDX_CHAT].setVisible(config.toolbarShowChat && !isInEditorMode());
             widgets[WIDX_RESEARCH].setVisible(config.toolbarShowResearch);
             widgets[WIDX_CHEATS].setVisible(config.toolbarShowCheats);
@@ -1379,6 +1401,20 @@ namespace OpenRCT2::Ui::Windows
                         rt, screenPos + ScreenCoordsXY{ 26, 2 }, STR_OVERLAY_CLEARANCE_CHECKS_DISABLED,
                         { colour, TextAlignment::right });
                 }
+            }
+
+            // Atmosphere and cinema buttons (pixel art drawn in code)
+            if (widgets[WIDX_ATMOSPHERE].isVisible())
+            {
+                AtmosphereOptionsPage::DrawTabIcon(
+                    rt, windowPos + ScreenCoordsXY{ widgets[WIDX_ATMOSPHERE].left - 1, widgets[WIDX_ATMOSPHERE].top - 3 }, false, 0);
+            }
+            if (widgets[WIDX_CINEMA].isVisible())
+            {
+                const bool active = Ui::Atmosphere::CinemaActive();
+                setWidgetPressed(WIDX_CINEMA, active);
+                const auto origin = windowPos + ScreenCoordsXY{ widgets[WIDX_CINEMA].left + 4, widgets[WIDX_CINEMA].top + 5 };
+                AtmosphereOptionsPage::DrawCinemaIcon(rt, origin, active);
             }
 
             // Draw chat button

@@ -9,6 +9,8 @@
 
 #include "Window.h"
 
+#include "../drawing/DepthPlane.h"
+
 #include "../Context.h"
 #include "../Game.h"
 #include "../Input.h"
@@ -566,6 +568,9 @@ static constexpr float kWindowScrollLocations[][2] = {
             if ((&w == v || v->flags.has(WindowFlag::transparent)) && v->isVisible)
             {
                 WindowDrawSingle(rt, *v, left, top, right, bottom);
+                // Atmosphere fork: remember the pure world before any UI is drawn over it.
+                if (&w == v && w.classification == WindowClass::mainWindow)
+                    Drawing::SnapshotWorldRegion(rt, left, top, right, bottom);
             }
         }
     }

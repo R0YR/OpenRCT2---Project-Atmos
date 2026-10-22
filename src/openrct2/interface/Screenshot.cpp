@@ -39,6 +39,7 @@
 #include "Viewport.h"
 
 #include <cstdlib>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -52,9 +53,58 @@ extern CoordsXY gClipSelectionB;
 extern uint8_t gClipHeight;
 
 uint8_t gScreenshotCountdown = 0;
+ScreenshotPostProcessFn gScreenshotPostProcess = nullptr;
+
+// View of the image that is about to be written (set by the giant screenshot code).
+struct StillView
+{
+    bool valid = false;
+    bool transparentBackground = false;
+    int32_t x = 0, y = 0, zoom = 0, rotation = 0;
+};
+static StillView gScreenshotStillView;
 
 static bool WriteRTToFile(std::string_view path, const RenderTarget& rt, const GamePalette& palette)
 {
+    // Atmosphere: giant screenshots get the post-processing effects as well (written as a 32bpp image)
+    if (gScreenshotPostProcess != nullptr && rt.bits != nullptr && rt.width > 0 && rt.height > 0
+        && gScreenshotStillView.valid)
+    {
+        try
+        {
+            uint32_t palette32[256];
+            for (size_t i = 0; i < 256; i++)
+                palette32[i] = 0xFF000000u | (static_cast<uint32_t>(palette[i].blue) << 16) | (static_cast<uint32_t>(palette[i].green) << 8)
+                    | palette[i].red;
+            Image image;
+            image.Width = rt.width;
+            image.Height = rt.height;
+            image.Depth = 32;
+            image.Stride = rt.width * 4;
+            image.Pixels.resize(static_cast<size_t>(image.Stride) * rt.height);
+            if (gScreenshotPostProcess(
+                    reinterpret_cast<const uint8_t*>(rt.bits), rt.width, rt.height, palette32, gScreenshotStillView.x,
+                    gScreenshotStillView.y, gScreenshotStillView.zoom, gScreenshotStillView.rotation,
+                    reinterpret_cast<uint32_t*>(image.Pixels.data())))
+            {
+                if (gScreenshotStillView.transparentBackground)
+                {
+                    // transparent background stays transparent (no cloud or vignette over the void)
+                    auto* pixels = reinterpret_cast<uint32_t*>(image.Pixels.data());
+                    for (size_t i = 0, n = static_cast<size_t>(rt.width) * rt.height; i < n; i++)
+                        if (rt.bits[i] == PaletteIndex::transparent)
+                            pixels[i] = 0;
+                }
+                Imaging::WriteToFile(path, image, ImageFormat::png);
+                return true;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LOG_ERROR("Unable to post-process or write png: %s", e.what());
+        }
+    }
+
     auto const pixels8 = reinterpret_cast<uint8_t*>(rt.bits);
     auto const pixelsLen = rt.LineStride() * rt.height;
     try
@@ -171,6 +221,38 @@ static std::optional<std::string> ScreenshotGetNextPath()
 
     LOG_ERROR("You have too many saved screenshots saved at exactly the same date and time.");
     return std::nullopt;
+}
+
+std::string ScreenshotDumpPixels32(const uint32_t* pixels, int32_t width, int32_t height, uint32_t rShift, uint32_t gShift, uint32_t bShift)
+{
+    auto path = ScreenshotGetNextPath();
+    if (!path.has_value() || pixels == nullptr || width <= 0 || height <= 0)
+        return {};
+    try
+    {
+        Image image;
+        image.Width = static_cast<uint32_t>(width);
+        image.Height = static_cast<uint32_t>(height);
+        image.Depth = 32;
+        image.Stride = static_cast<uint32_t>(width) * 4;
+        image.Pixels.resize(static_cast<size_t>(image.Stride) * height);
+        uint8_t* dst = image.Pixels.data();
+        for (size_t i = 0, n = static_cast<size_t>(width) * height; i < n; i++)
+        {
+            const uint32_t p = pixels[i];
+            *dst++ = static_cast<uint8_t>(p >> rShift);
+            *dst++ = static_cast<uint8_t>(p >> gShift);
+            *dst++ = static_cast<uint8_t>(p >> bShift);
+            *dst++ = 0xFF;
+        }
+        Imaging::WriteToFile(path.value(), image, ImageFormat::png);
+        return path.value();
+    }
+    catch (const std::exception& e)
+    {
+        LOG_ERROR("Unable to write png: %s", e.what());
+        return {};
+    }
 }
 
 std::string ScreenshotDumpPNG(RenderTarget& rt)
@@ -360,7 +442,11 @@ void ScreenshotGiant()
         rt = CreateRT(viewport);
 
         RenderViewport(nullptr, viewport, rt);
+        gScreenshotStillView = { true, Config::Get().general.transparentScreenshot,
+                                 viewport.zoom.ApplyInversedTo(viewport.viewPos.x), viewport.zoom.ApplyInversedTo(viewport.viewPos.y),
+                                 static_cast<int32_t>(static_cast<int8_t>(viewport.zoom)), static_cast<int32_t>(viewport.rotation) };
         WriteRTToFile(path.value(), rt, gPalette);
+        gScreenshotStillView.valid = false;
 
         // Show user that screenshot saved successfully
         const auto filename = Path::GetFileName(path.value());

@@ -49,7 +49,8 @@
 
 constexpr uint8_t kStreamVersion = 0;
 
-const std::string kStreamID = std::string(kOpenRCT2Version) + "-" + std::to_string(kStreamVersion);
+// Guest spawn consumes scenario RNG differently; reject peers running the unmodified simulation.
+const std::string kStreamID = std::string(kOpenRCT2Version) + "-" + std::to_string(kStreamVersion) + "-atmosphere-guests-2";
 
 static OpenRCT2::Peep* _pickup_peep = nullptr;
 static int32_t _pickup_peep_old_x = kLocationNull;

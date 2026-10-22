@@ -8,6 +8,7 @@
  *****************************************************************************/
 
 #include "WeatherDrawer.h"
+#include "DepthPlane.h"
 
 #include "../GameState.h"
 #include "../config/Config.h"
@@ -51,7 +52,7 @@ const DrawWeatherFunc DrawSnowFunctions[] = {
  */
 void DrawWeather(RenderTarget& rt, IWeatherDrawer* weatherDrawer)
 {
-    if (!Config::Get().general.renderWeatherEffects)
+    if (!Config::Get().general.renderWeatherEffects || Drawing::gAtmosphereReplacesWeather.load(std::memory_order_relaxed))
         return;
 
     ViewportFlags viewFlags;

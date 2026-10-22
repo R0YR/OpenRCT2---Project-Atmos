@@ -13,6 +13,7 @@
 #include <limits>
 #include <memory>
 #include <openrct2-ui/UiStringIds.h>
+#include <openrct2-ui/drawing/AtmosphereRideShadows.h>
 #include <openrct2-ui/interface/Dropdown.h>
 #include <openrct2-ui/interface/Theme.h>
 #include <openrct2-ui/interface/Widget.h>
@@ -189,6 +190,7 @@ namespace OpenRCT2::Ui::Windows
         WIDX_LOCATE_MECHANIC,
         WIDX_REFURBISH_RIDE,
         WIDX_FORCE_BREAKDOWN,
+        WIDX_ATMOSPHERE_SHADOWS,
 
         WIDX_PRIMARY_PREVIEW_GROUP = 14,
         WIDX_PRIMARY_PREVIEW,
@@ -341,7 +343,8 @@ namespace OpenRCT2::Ui::Windows
         makeWidget     ({297,  77}, {  11, 12}, WidgetType::button,       WindowColour::secondary, STR_DROPDOWN_GLYPH,        STR_SELECT_HOW_OFTEN_A_MECHANIC_SHOULD_CHECK_THIS_RIDE),
         makeWidget     ({289, 123}, {  24, 24}, WidgetType::flatBtn,      WindowColour::secondary, 0xFFFFFFFF,                STR_LOCATE_NEAREST_AVAILABLE_MECHANIC_TIP             ),
         makeWidget     ({265, 123}, {  24, 24}, WidgetType::flatBtn,      WindowColour::secondary, ImageId(SPR_CONSTRUCTION), STR_REFURBISH_RIDE_TIP                                ),
-        makeWidget     ({241, 123}, {  24, 24}, WidgetType::flatBtn,      WindowColour::secondary, ImageId(SPR_NO_ENTRY),     STR_DEBUG_FORCE_BREAKDOWN_TIP                         )
+        makeWidget     ({241, 123}, {  24, 24}, WidgetType::flatBtn,      WindowColour::secondary, ImageId(SPR_NO_ENTRY),     STR_DEBUG_FORCE_BREAKDOWN_TIP                         ),
+        makeWidget     ({  7, 166}, {302, 12}, WidgetType::checkbox,     WindowColour::secondary, kStringIdEmpty)
     );
 
     // 0x009AE2A4
@@ -3893,6 +3896,12 @@ namespace OpenRCT2::Ui::Windows
                 case WIDX_TAB_10:
                     setPage(widgetIndex - WIDX_TAB_1);
                     break;
+                case WIDX_ATMOSPHERE_SHADOWS:
+                    if (!Atmosphere::RideShadows::kRenderingEnabled) break;
+                    Atmosphere::RideShadows::SetEnabled(rideId, !Atmosphere::RideShadows::IsEnabled(rideId));
+                    GfxInvalidateScreen();
+                    invalidate();
+                    break;
                 case WIDX_LOCATE_MECHANIC:
                     LocateMechanic();
                     break;
@@ -3904,7 +3913,7 @@ namespace OpenRCT2::Ui::Windows
 
         void MaintenanceResize()
         {
-            auto bottom = widgets[WIDX_LOCATE_MECHANIC].bottom + 6 - getTitleBarDiffNormal();
+            auto bottom = widgets[WIDX_ATMOSPHERE_SHADOWS].bottom + 6 - getTitleBarDiffNormal();
             WindowSetResize(*this, { kMinimumWindowWidth, bottom }, { kMinimumWindowWidth, bottom });
         }
 
@@ -4128,6 +4137,8 @@ namespace OpenRCT2::Ui::Windows
                 return;
 
             widgets[WIDX_INSPECTION_INTERVAL].text = kRideInspectionIntervalNames[EnumValue(ride->inspectionInterval)];
+            setWidgetPressed(WIDX_ATMOSPHERE_SHADOWS, Atmosphere::RideShadows::kRenderingEnabled && Atmosphere::RideShadows::IsEnabled(rideId));
+            setWidgetDisabled(WIDX_ATMOSPHERE_SHADOWS, !Atmosphere::RideShadows::kRenderingEnabled);
 
             WindowAlignTabs(this, WIDX_TAB_1, WIDX_TAB_10);
 
@@ -4166,6 +4177,12 @@ namespace OpenRCT2::Ui::Windows
 
             drawWidgets(rt);
             drawTabImages(rt);
+
+            // Local rendering preference for both this ride's track and vehicles.
+            const auto& shadowsWidget = widgets[WIDX_ATMOSPHERE_SHADOWS];
+            drawText(
+                rt, windowPos + ScreenCoordsXY{ shadowsWidget.left + 14, shadowsWidget.top },
+                Atmosphere::RideShadows::kRenderingEnabled ? "Track- und Fahrzeugschatten" : "Track-Schatten pausiert", { colours[1] });
 
             // Locate mechanic button image
             Widget* widget = &widgets[WIDX_LOCATE_MECHANIC];

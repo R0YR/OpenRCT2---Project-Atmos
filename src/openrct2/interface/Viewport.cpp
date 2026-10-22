@@ -17,6 +17,7 @@
 #include "../core/Guard.hpp"
 #include "../core/JobPool.h"
 #include "../core/Numerics.hpp"
+#include "../drawing/DepthPlane.h"
 #include "../drawing/Drawing.Screen.h"
 #include "../drawing/Drawing.Sprite.h"
 #include "../drawing/Drawing.h"
@@ -605,6 +606,28 @@ namespace OpenRCT2
             windowCoords.y += viewport->viewPos.y;
         }
 
+        const float smoothRate = gSmoothCameraRate.load(std::memory_order_relaxed);
+        if (smoothRate > 0.0f && window->classification == WindowClass::mainWindow && !window->flags.has(WindowFlag::scrollingToLocation))
+        {
+            // Cinema camera: ease towards the target instead of jumping, so movement starts and stops gently.
+            static auto lastTime = std::chrono::steady_clock::now();
+            const auto now = std::chrono::steady_clock::now();
+            const float dt = std::min(0.1f, std::chrono::duration<float>(now - lastTime).count());
+            lastTime = now;
+            const float f = 1.0f - std::exp(-smoothRate * dt);
+            const auto glide = [&](int32_t target, int32_t current) {
+                const int32_t diff = target - current;
+                if (std::abs(diff) > 6000)
+                    return target; // teleport (jump to a location)
+                int32_t step = static_cast<int32_t>(std::lround(static_cast<float>(diff) * f));
+                if (step == 0 && diff != 0)
+                    step = diff > 0 ? 1 : -1;
+                return current + step;
+            };
+            windowCoords.x = glide(windowCoords.x, viewport->viewPos.x);
+            windowCoords.y = glide(windowCoords.y, viewport->viewPos.y);
+        }
+
         ViewportMove(windowCoords, window, viewport);
     }
 
@@ -886,6 +909,18 @@ namespace OpenRCT2
     static void ViewportPaint(const Viewport* viewport, RenderTarget& rt)
     {
         PROFILED_FUNCTION();
+        struct PaintTimer
+        {
+            std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+            uint64_t pixels = 0;
+            ~PaintTimer()
+            {
+                gPaintNanos.fetch_add(
+                    static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count()),
+                    std::memory_order_relaxed);
+                gPaintPixels.fetch_add(pixels, std::memory_order_relaxed);
+            }
+        } paintTimer;
 
         const int32_t offsetX = rt.x - viewport->pos.x;
         const int32_t offsetY = rt.y - viewport->pos.y;
@@ -894,6 +929,7 @@ namespace OpenRCT2
         const int32_t width = std::min(viewport->pos.x + viewport->width, rt.x + rt.width) - std::max(viewport->pos.x, rt.x);
         const int32_t height = std::min(viewport->pos.y + viewport->height, rt.y + rt.height) - std::max(viewport->pos.y, rt.y);
 
+        paintTimer.pixels = static_cast<uint64_t>(std::max(0, width)) * static_cast<uint64_t>(std::max(0, height));
         RenderTarget worldRT;
         worldRT.DrawingEngine = rt.DrawingEngine;
         worldRT.bits = rt.bits + std::max(0, -offsetX) + std::max(0, -offsetY) * rt.LineStride();
@@ -903,6 +939,26 @@ namespace OpenRCT2
         worldRT.height = height;
         worldRT.pitch = rt.LineStride() - worldRT.width;
         worldRT.zoom_level = viewport->zoom;
+
+        // Atmosphere fork: forget the depth of the region that is about to be repainted.
+        if (gDepthPlane.data != nullptr && worldRT.bits >= gDepthPlane.base && worldRT.bits < gDepthPlane.base + gDepthPlane.size)
+        {
+            for (int32_t row = 0; row < worldRT.height; row++)
+            {
+                const auto offset = (worldRT.bits + static_cast<size_t>(row) * worldRT.LineStride()) - gDepthPlane.base;
+                std::fill_n(gDepthPlane.data + offset, worldRT.width, kDepthUnknown);
+                if (gDepthPlane.receiverDepth != nullptr)
+                    std::fill_n(gDepthPlane.receiverDepth + offset, worldRT.width, kDepthUnknown);
+                if (gDepthPlane.receiverFlags != nullptr)
+                    std::fill_n(gDepthPlane.receiverFlags + offset, worldRT.width, static_cast<uint8_t>(0));
+                if (gDepthPlane.sway != nullptr)
+                    std::fill_n(gDepthPlane.sway + offset, worldRT.width, static_cast<uint8_t>(0));
+                if (gDepthPlane.shadowFlags != nullptr)
+                    std::fill_n(gDepthPlane.shadowFlags + offset, worldRT.width, static_cast<uint8_t>(0));
+                if (gDepthPlane.shadowHeight != nullptr)
+                    std::fill_n(gDepthPlane.shadowHeight + offset, worldRT.width, static_cast<uint16_t>(0));
+            }
+        }
 
         _paintColumns.clear();
 

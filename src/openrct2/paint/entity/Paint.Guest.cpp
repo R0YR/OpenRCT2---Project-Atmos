@@ -10,7 +10,10 @@
 #include "Paint.Guest.h"
 
 #include "../../drawing/ImageId.hpp"
+#include "../../Context.h"
 #include "../../entity/Guest.h"
+#include "../../object/ObjectManager.h"
+#include "../../object/PeepAnimationsObject.h"
 #include "../../peep/PeepSpriteIds.h"
 #include "../../profiling/Profiling.h"
 #include "../Paint.h"
@@ -56,22 +59,21 @@ void PaintGuestAccesories(
     else if (actionAnimationGroup == PeepAnimationType::sittingIdle)
         itemFrame = 7;
 
+    const auto* animations = GetContext()->GetObjectManager().GetLoadedObject<PeepAnimationsObject>(guest.animationObjectIndex);
+
     if (guest.animationGroup == PeepAnimationGroup::hat)
     {
-        auto itemOffset = kPeepSpriteHatItemStart;
-        auto imageId = ImageId(itemOffset + direction + itemFrame * 4, guest.hatColour);
+        auto imageId = ImageId(animations->GetAccessoryImage(guest.animationGroup, itemFrame, direction), guest.hatColour);
         PaintAddImageAsChild(session, imageId, kPaintPeepOffset(guest.z), kPaintPeepBoundBox(guest.z));
     }
     else if (guest.animationGroup == PeepAnimationGroup::balloon)
     {
-        auto itemOffset = kPeepSpriteBalloonItemStart;
-        auto imageId = ImageId(itemOffset + direction + itemFrame * 4, guest.balloonColour);
+        auto imageId = ImageId(animations->GetAccessoryImage(guest.animationGroup, itemFrame, direction), guest.balloonColour);
         PaintAddImageAsChild(session, imageId, kPaintPeepOffset(guest.z), kPaintPeepBoundBox(guest.z));
     }
     else if (guest.animationGroup == PeepAnimationGroup::umbrella)
     {
-        auto itemOffset = kPeepSpriteUmbrellaItemStart;
-        auto imageId = ImageId(itemOffset + direction + itemFrame * 4, guest.umbrellaColour);
+        auto imageId = ImageId(animations->GetAccessoryImage(guest.animationGroup, itemFrame, direction), guest.umbrellaColour);
         PaintAddImageAsChild(session, imageId, kPaintPeepOffset(guest.z), kPaintPeepBoundBox(guest.z));
     }
 }

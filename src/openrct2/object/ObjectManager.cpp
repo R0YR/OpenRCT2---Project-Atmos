@@ -10,6 +10,7 @@
 #include "ObjectManager.h"
 
 #include "../Context.h"
+#include "../drawing/AtmosphereFoliage.h"
 #include "../Diagnostic.h"
 #include "../ParkImporter.h"
 #include "../audio/Audio.h"
@@ -17,6 +18,8 @@
 #include "../core/EnumUtils.hpp"
 #include "../core/JobPool.h"
 #include "../localisation/StringIds.h"
+#include "../network/Network.h"
+#include "../peep/PeepAnimations.h"
 #include "../ride/Ride.h"
 #include "../ride/RideAudio.h"
 #include "BannerSceneryEntry.h"
@@ -26,6 +29,7 @@
 #include "ObjectList.h"
 #include "ObjectRepository.h"
 #include "PathAdditionEntry.h"
+#include "PeepAnimationsObject.h"
 #include "RideObject.h"
 #include "SceneryGroupObject.h"
 #include "SceneryObject.h"
@@ -212,6 +216,8 @@ namespace OpenRCT2
 
             // Load the required objects
             LoadObjects(requiredObjects, reportProgress);
+
+            LoadAtmosphereGuestAnimations();
 
             // Update indices.
             UpdateSceneryGroupIndexes();
@@ -522,6 +528,7 @@ namespace OpenRCT2
                     sgObject->UpdateEntryIndexes();
                 }
             }
+            Drawing::AtmosphereFoliage::Refresh(*this);
         }
 
         ObjectEntryIndex GetPrimarySceneryGroupEntryIndex(Object* loadedObject)
@@ -723,6 +730,26 @@ namespace OpenRCT2
             }
 
             LOG_VERBOSE("%u / %u new objects loaded", newLoadedObjects.size(), requiredObjects.size());
+        }
+
+        void LoadAtmosphereGuestAnimations()
+        {
+            // Clients must use exactly the object slots supplied by the server's park.
+            if (Network::GetMode() == Network::Mode::client)
+                return;
+
+            const auto normalIndex = findGuestAnimationsBasisIndex();
+            const auto* normal = static_cast<PeepAnimationsObject*>(GetLoadedObject(ObjectType::peepAnimations, normalIndex));
+            if (normal == nullptr || normal->GetIdentifier() != "rct2.peep_animations.guest")
+                return;
+
+            for (const auto identifier : kAtmosphereGuestAnimationIdentifiers)
+            {
+                if (LoadObject(identifier) == nullptr)
+                {
+                    LOG_WARNING("Optional guest animation object '%s' could not be loaded.", std::string(identifier).c_str());
+                }
+            }
         }
 
         Object* GetOrLoadObject(const ObjectRepositoryItem* ori)

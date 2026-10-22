@@ -23,6 +23,7 @@ namespace OpenRCT2::Ui::ShortcutId
     constexpr std::string_view kInterfaceIncreaseSpeed = "interface.misc.increase_speed";
     constexpr std::string_view kInterfaceToggleToolbars = "interface.misc.toggle_toolbars";
     constexpr std::string_view kInterfaceScreenshot = "interface.misc.screenshot";
+    constexpr std::string_view kInterfaceAtmosphereToggle = "interface.misc.atmosphere_toggle";
     constexpr std::string_view kInterfaceGiantScreenshot = "interface.misc.giant_screenshot";
     constexpr std::string_view kInterfaceLoadGame = "interface.misc.load_game";
     constexpr std::string_view kInterfaceSaveGame = "interface.misc.save_game";

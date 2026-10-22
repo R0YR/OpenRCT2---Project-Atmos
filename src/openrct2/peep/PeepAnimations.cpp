@@ -17,6 +17,7 @@
 #include "../object/ObjectLimits.h"
 #include "../object/ObjectManager.h"
 #include "../object/PeepAnimationsObject.h"
+#include "../scenario/Scenario.h"
 
 #include <algorithm>
 #include <random>
@@ -143,6 +144,52 @@ namespace OpenRCT2
                 return i;
         }
         return kObjectEntryIndexNull;
+    }
+
+    ObjectEntryIndex findGuestAnimationsBasisIndex()
+    {
+        auto& objManager = GetContext()->GetObjectManager();
+        for (auto i = 0u; i < kMaxPeepAnimationsObjects; i++)
+        {
+            const auto* object = objManager.GetLoadedObject<PeepAnimationsObject>(i);
+            if (object == nullptr || object->GetPeepType() != AnimationPeepType::guest)
+                continue;
+            // Appearance variants must not become the basis in sparse saved object lists.
+            if (!object->GetIdentifier().starts_with("atmosphere.peep_animations."))
+            {
+                return static_cast<ObjectEntryIndex>(i);
+            }
+        }
+        return findPeepAnimationsIndexForType(AnimationPeepType::guest);
+    }
+
+    ObjectEntryIndex findRandomGuestAnimationsIndex()
+    {
+        // Keep parks using another guest object on their selected appearance basis.
+        const auto normalIndex = findGuestAnimationsBasisIndex();
+        auto& objManager = GetContext()->GetObjectManager();
+        const auto* normal = objManager.GetLoadedObject<PeepAnimationsObject>(normalIndex);
+        if (normal == nullptr || normal->GetIdentifier() != "rct2.peep_animations.guest")
+            return normalIndex;
+
+        std::array<ObjectEntryIndex, 4 + kAtmosphereGuestAnimationIdentifiers.size()> choices{};
+        std::fill_n(choices.begin(), 4, normalIndex);
+        size_t count = 4;
+        for (const auto identifier : kAtmosphereGuestAnimationIdentifiers)
+        {
+            const auto index = objManager.GetLoadedObjectEntryIndex(identifier);
+            const auto* object = objManager.GetLoadedObject<PeepAnimationsObject>(index);
+            if (object != nullptr && object->GetIdentifier() == identifier && object->GetPeepType() == AnimationPeepType::guest
+                && !object->ShouldExcludeFromRandomPlacement())
+            {
+                choices[count++] = index;
+            }
+        }
+
+        // Without variants retain the original RNG sequence. All simulation choices use the scenario RNG.
+        if (count == 4)
+            return normalIndex;
+        return choices[ScenarioRandMax(static_cast<uint32_t>(count))];
     }
 
     PeepAnimationsObject* findPeepAnimationsObjectForType(const AnimationPeepType type)
@@ -281,7 +328,7 @@ namespace OpenRCT2
     }
 
     // Adapted from CarEntry.cpp
-    SpriteBounds inferMaxAnimationDimensions(const PeepAnimation& anim)
+    SpriteBounds inferMaxAnimationDimensions(const PeepAnimation& anim, uint8_t rotations)
     {
         constexpr uint8_t kWidth = 200;
         constexpr uint8_t kHeight = 200;
@@ -300,7 +347,7 @@ namespace OpenRCT2
             .zoom_level = ZoomLevel{ 0 },
         };
 
-        const auto numImages = *(std::max_element(anim.frameOffsets.begin(), anim.frameOffsets.end())) + 1;
+        const auto numImages = (*(std::max_element(anim.frameOffsets.begin(), anim.frameOffsets.end())) + 1) * rotations;
         for (int32_t i = 0; i < numImages; ++i)
         {
             GfxDrawSpriteSoftware(rt, ImageId(anim.baseImage + i), { 0, 0 });

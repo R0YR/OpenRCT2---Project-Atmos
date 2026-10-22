@@ -503,6 +503,10 @@ if (NOT MACOS_BUNDLE OR (MACOS_BUNDLE AND WITH_TESTS))
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/palettes.dat" DESTINATION "${CMAKE_INSTALL_DATADIR}/openrct2")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tracks.dat" DESTINATION "${CMAKE_INSTALL_DATADIR}/openrct2")
     install(DIRECTORY "data/" DESTINATION "${CMAKE_INSTALL_DATADIR}/openrct2")
+    install(FILES "resources/project-atmos/project-atmos-logo.png" DESTINATION "${CMAKE_INSTALL_DATADIR}/openrct2")
+    install(DIRECTORY "resources/guest-diversity/objects/"
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/openrct2/object/atmosphere/peep_animations"
+            FILES_MATCHING PATTERN "*.parkobj")
 
     # even when building WITH_TESTS, none of the below install steps are required for OpenRCT2.app
     if (NOT MACOS_BUNDLE)

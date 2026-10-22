@@ -15,6 +15,7 @@
 #include <cmath>
 #include <openrct2-ui/interface/Dropdown.h>
 #include <openrct2-ui/interface/Theme.h>
+
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/interface/Window.h>
 #include <openrct2-ui/windows/Windows.h>
@@ -495,7 +496,6 @@ namespace OpenRCT2::Ui::Windows
     class OptionsWindow final : public Window
     {
         u8string _dropdownCaption{};
-
     public:
         void onOpen() override
         {

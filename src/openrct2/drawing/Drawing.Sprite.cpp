@@ -1047,6 +1047,29 @@ void FASTCALL GfxDrawSpriteRawMaskedSoftware(
     PaletteIndex* dst = rt.bits + (left - rt.x) + ((top - rt.y) * rt.LineStride());
     int32_t skipX = left - offsetCoords.x;
     int32_t skipY = top - offsetCoords.y;
+    const auto depth = DepthBlitCtx::Make(rt);
+    if (depth.plane != nullptr)
+    {
+        // Masked terrain patterns must update the same auxiliary planes as regular sprites.
+        // Otherwise their colour changes while effects still see an unrelated surface behind them.
+        const auto& paletteMap = PaletteMap::GetDefault();
+        for (int32_t y = 0; y < height; y++)
+        {
+            auto* row = dst + static_cast<size_t>(y) * rt.LineStride();
+            const auto rowDepth = depth.RowDepth(rt, row);
+            const auto rowSway = depth.RowSway(rt, row);
+            const auto rowHeight = depth.RowShadowHeight(rt, row, rowDepth);
+            const int32_t sy = zoom.ApplyTo(skipY + y);
+            for (int32_t x = 0; x < width; x++)
+            {
+                const int32_t sx = zoom.ApplyTo(skipX + x);
+                const auto colour = static_cast<PaletteIndex>(imgMask->offset[sy * imgMask->width + sx]
+                    & imgColour->offset[sy * imgColour->width + sx]);
+                BlitPixelDepth<kBlendTransparent>(&colour, row + x, paletteMap, depth, rowDepth, rowSway, rowHeight);
+            }
+        }
+        return;
+    }
     if (zoom < ZoomLevel{ 0 })
     {
         MaskMagnify(

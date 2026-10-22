@@ -644,6 +644,19 @@ namespace OpenRCT2
         _entries.push_back(std::move(newg1));
     }
 
+    void ImageTable::ReplaceImage(size_t index, const G1Element& image)
+    {
+        Guard::Assert(_data == nullptr && index < _entries.size(), "ReplaceImage requires an owned JSON image");
+        auto length = G1CalculateDataSize(&image);
+        auto buffer = std::make_unique<uint8_t[]>(length);
+        if (length != 0)
+            std::copy_n(image.offset, length, buffer.get());
+        auto replacement = image;
+        replacement.offset = buffer.release();
+        delete[] _entries[index].offset;
+        _entries[index] = replacement;
+    }
+
     void ImageTable::addPalette(const G1Palette& g1)
     {
         Guard::Assert(g1.flags.has(G1Flag::isPalette));

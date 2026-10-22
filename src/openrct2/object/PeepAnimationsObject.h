@@ -10,6 +10,7 @@
 #pragma once
 
 #include "../peep/PeepAnimations.h"
+#include "../peep/GuestAppearance.h"
 #include "Object.h"
 
 #include <string_view>
@@ -26,6 +27,10 @@ namespace OpenRCT2
         std::vector<PeepAnimations> _animationGroups;
         AnimationPeepType _peepType;
         bool _noRandomPlacement;
+        GuestAppearance _appearance{ GuestAppearance::normal };
+        ImageIndex _accessoryImageOffset{ kImageIndexUndefined };
+
+        void CreateAppearanceImages();
 
     public:
         static constexpr ObjectType kObjectType = ObjectType::peepAnimations;
@@ -50,6 +55,8 @@ namespace OpenRCT2
         std::string_view GetScriptName(PeepAnimationGroup animGroup) const;
 
         bool IsSlowWalking(PeepAnimationGroup animGroup) const;
+
+        ImageIndex GetAccessoryImage(PeepAnimationGroup group, uint8_t frame, uint8_t direction) const;
 
         bool ShouldExcludeFromRandomPlacement() const
         {

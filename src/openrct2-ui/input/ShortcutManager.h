@@ -72,6 +72,16 @@ namespace OpenRCT2::Ui
         {
         }
 
+        RegisteredShortcut(
+            std::string_view _id, std::string_view _name, std::string_view _defaultChord, const std::function<void()>& _action)
+            : id(_id)
+            , customName(_name)
+            , standard({ _defaultChord })
+            , current(standard)
+            , action(_action)
+        {
+        }
+
         RegisteredShortcut(std::string_view _id, StringId _localisedName, const std::function<void()>& _action)
             : id(_id)
             , localisedName(_localisedName)

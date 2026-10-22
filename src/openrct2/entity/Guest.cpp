@@ -7157,7 +7157,7 @@ namespace OpenRCT2
 
         Guest* peep = gameState.entities.createEntity<Guest>();
 
-        peep->animationObjectIndex = findPeepAnimationsIndexForType(AnimationPeepType::guest);
+        peep->animationObjectIndex = findRandomGuestAnimationsIndex();
         peep->animationGroup = PeepAnimationGroup::normal;
         peep->outsideOfPark = true;
         peep->state = PeepState::falling;

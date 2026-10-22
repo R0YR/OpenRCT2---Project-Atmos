@@ -49,6 +49,9 @@
     <ClInclude Include="CursorData.h" />
     <ClInclude Include="CursorRepository.h" />
     <ClInclude Include="drawing\BitmapReader.h" />
+    <ClInclude Include="drawing\Atmosphere.h" />
+    <ClInclude Include="drawing\AtmosphereCoordinates.h" />
+    <ClInclude Include="drawing\AtmosphereLeaf.h" />
     <ClInclude Include="drawing\engines\DrawingEngineFactory.hpp" />
     <ClInclude Include="drawing\engines\opengl\ApplyPaletteShader.h" />
     <ClInclude Include="drawing\engines\opengl\ApplyTransparencyShader.h" />
@@ -105,6 +108,7 @@
     <ClInclude Include="UiContext.h" />
     <ClInclude Include="UiStringIds.h" />
     <ClInclude Include="WindowManager.h" />
+    <ClInclude Include="windows\OptionsAtmosphere.h" />
     <ClInclude Include="windows\Windows.h" />
   </ItemGroup>
   <ItemGroup>
@@ -119,6 +123,7 @@
     <ClCompile Include="CursorData.cpp" />
     <ClCompile Include="CursorRepository.cpp" />
     <ClCompile Include="drawing\BitmapReader.cpp" />
+    <ClCompile Include="drawing\Atmosphere.cpp" />
     <ClCompile Include="drawing\engines\HardwareDisplayDrawingEngine.cpp" />
     <ClCompile Include="drawing\engines\opengl\ApplyPaletteShader.cpp" />
     <ClCompile Include="drawing\engines\opengl\ApplyTransparencyShader.cpp" />
@@ -209,6 +214,8 @@
     <ClCompile Include="windows\NewsTicker.cpp" />
     <ClCompile Include="windows\ObjectLoadError.cpp" />
     <ClCompile Include="windows\Options.cpp" />
+    <ClCompile Include="windows\OptionsAtmosphere.cpp" />
+    <ClCompile Include="windows\AtmosphereWindow.cpp" />
     <ClCompile Include="windows\OverwritePrompt.cpp" />
     <ClCompile Include="windows\Park.cpp" />
     <ClCompile Include="windows\ParkInfoPanel.cpp" />

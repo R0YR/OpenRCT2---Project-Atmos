@@ -7,6 +7,7 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "../drawing/DepthPlane.h"
 #include "Map.h"
 
 #include "../Cheats.h"
@@ -1712,6 +1713,7 @@ namespace OpenRCT2
      */
     void MapInvalidateTile(const CoordsXYRangedZ& tilePos)
     {
+        Drawing::gMapRevision.fetch_add(1, std::memory_order_relaxed);
         MapInvalidateTileUnderZoom(tilePos.x, tilePos.y, tilePos.baseZ, tilePos.clearanceZ, ZoomLevel{ -1 });
     }
 
@@ -1721,6 +1723,7 @@ namespace OpenRCT2
      */
     void MapInvalidateTileZoom1(const CoordsXYRangedZ& tilePos)
     {
+        Drawing::gMapRevision.fetch_add(1, std::memory_order_relaxed);
         MapInvalidateTileUnderZoom(tilePos.x, tilePos.y, tilePos.baseZ, tilePos.clearanceZ, ZoomLevel{ 1 });
     }
 
@@ -1730,6 +1733,7 @@ namespace OpenRCT2
      */
     void MapInvalidateTileZoom0(const CoordsXYRangedZ& tilePos)
     {
+        Drawing::gMapRevision.fetch_add(1, std::memory_order_relaxed);
         MapInvalidateTileUnderZoom(tilePos.x, tilePos.y, tilePos.baseZ, tilePos.clearanceZ, ZoomLevel{ 0 });
     }
 

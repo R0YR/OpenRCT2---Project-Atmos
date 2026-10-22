@@ -8,6 +8,8 @@
  *****************************************************************************/
 
 #include <openrct2-ui/interface/Theme.h>
+#include "../drawing/Atmosphere.h"
+
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/interface/Window.h>
 #include <openrct2-ui/windows/Windows.h>
@@ -16,6 +18,7 @@
 #include <openrct2/SpriteIds.h>
 #include <openrct2/drawing/Drawing.String.h>
 #include <openrct2/drawing/Drawing.h>
+#include <openrct2/drawing/ColourMap.h>
 #include <openrct2/drawing/Rectangle.h>
 #include <openrct2/drawing/RenderTarget.h>
 #include <openrct2/drawing/Text.h>
@@ -255,6 +258,13 @@ namespace OpenRCT2::Ui::Windows
 
         void onDraw(RenderTarget& rt) override
         {
+            if (Ui::Atmosphere::OpaqueInterface())
+            {
+                const auto& panel = widgets[WIDX_PANEL_OUTSET];
+                Rectangle::fill(
+                    rt, { windowPos + ScreenCoordsXY{ panel.left, panel.top }, windowPos + ScreenCoordsXY{ panel.right, panel.bottom } },
+                    getColourMap(Colour::darkGreen).darker);
+            }
             drawWidgets(rt);
             drawNewsItem(rt);
         }

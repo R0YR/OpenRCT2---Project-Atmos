@@ -12,6 +12,7 @@
 #include <openrct2-ui/input/InputManager.h>
 #include <openrct2-ui/interface/Dropdown.h>
 #include <openrct2-ui/interface/Widget.h>
+#include "../drawing/Atmosphere.h"
 #include <openrct2-ui/interface/Window.h>
 #include <openrct2-ui/windows/Windows.h>
 #include <openrct2/GameState.h>
@@ -1058,6 +1059,25 @@ namespace OpenRCT2::Ui::Windows
             {
                 drawText(rt, screenCoords + ScreenCoordsXY(50 - 7, yOffset), "-", { colours[1] });
                 drawText(rt, screenCoords + ScreenCoordsXY(127 - 7, yOffset), "-", { colours[1] });
+            }
+
+            if (_tileSelected)
+            {
+                // Atmosphere light objects are not tile elements; show the ones that stand on this tile
+                const auto tileCoords = TileCoordsXY{ _toolMap };
+                int32_t lightsHere = 0;
+                for (int32_t i = 0; i < Atmosphere::LightCount(); i++)
+                {
+                    const auto* light = Atmosphere::LightAt(i);
+                    if (light != nullptr && light->x / 32 == tileCoords.x && light->y / 32 == tileCoords.y)
+                        lightsHere++;
+                }
+                if (lightsHere > 0)
+                {
+                    char text[128];
+                    std::snprintf(text, sizeof(text), "Atmosphere: %d light object(s) on this tile (Options > Atmosphere > Lights)", lightsHere);
+                    drawText(rt, windowPos + ScreenCoordsXY{ 8, height - 13 }, text, { colours[1] });
+                }
             }
 
             if (windowTileInspectorSelectedIndex != -1)

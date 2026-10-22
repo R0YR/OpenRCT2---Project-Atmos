@@ -59,6 +59,15 @@ namespace OpenRCT2::Drawing
 void ScreenshotCheck();
 std::string ScreenshotDump();
 std::string ScreenshotDumpPNG(OpenRCT2::Drawing::RenderTarget& rt);
+// Saves an already composed 32bpp frame (e.g. with post-processing effects applied). Returns the path or an empty string.
+// Post-processing hook for still images (giant screenshots): receives the 8bpp image, the 256 colour palette as
+// 0xAABBGGRR, the view of the image on the map (world pixel position of the top left corner, zoom, rotation) and fills
+// `out` (width * height RGBA pixels, byte order R,G,B,A). Returns false when no effect is active.
+using ScreenshotPostProcessFn = bool (*)(
+    const uint8_t* bits, int32_t width, int32_t height, const uint32_t* palette, int32_t viewX, int32_t viewY, int32_t zoom,
+    int32_t rotation, uint32_t* out);
+extern ScreenshotPostProcessFn gScreenshotPostProcess;
+std::string ScreenshotDumpPixels32(const uint32_t* pixels, int32_t width, int32_t height, uint32_t rShift, uint32_t gShift, uint32_t bShift);
 
 void ScreenshotGiant();
 int32_t CommandLineForScreenshot(const char** argv, int32_t argc, ScreenshotOptions* options);

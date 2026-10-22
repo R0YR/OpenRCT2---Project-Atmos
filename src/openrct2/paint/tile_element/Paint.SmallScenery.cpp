@@ -20,6 +20,7 @@
 #include "Paint.SmallScenery.h"
 #include "Paint.TileElement.h"
 #include "Segment.h"
+#include "ScenerySupports.h"
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::Drawing;
@@ -42,6 +43,9 @@ static void PaintSmallScenerySupports(
         return;
 
     if (sceneryEntry.flags.has(SmallSceneryFlag::hasNoSupports))
+        return;
+
+    if (ScenerySupportsAreBlocked(session))
         return;
 
     auto transitionType = WoodenSupportTransitionType::none;

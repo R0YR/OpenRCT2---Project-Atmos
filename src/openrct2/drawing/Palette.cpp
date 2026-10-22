@@ -8,6 +8,7 @@
  *****************************************************************************/
 
 #include "Palette.h"
+#include "DepthPlane.h"
 
 #include "../Game.h"
 #include "../GameState.h"
@@ -86,6 +87,11 @@ namespace OpenRCT2::Drawing
     void UpdatePaletteEffects()
     {
         const auto& waterEntry = getActiveWaterEntry();
+        if (gAtmosphereReplacesLightning.load(std::memory_order_relaxed) && Weather::gLightningFlash == 1)
+        {
+            // Consume the weather event without changing palette colours; restore any earlier vanilla flash normally.
+            Weather::gLightningFlash = 0;
+        }
 
         if (Weather::gLightningFlash == 1)
         {

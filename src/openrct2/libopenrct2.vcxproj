@@ -250,6 +250,7 @@
     <ClInclude Include="Date.h" />
     <ClInclude Include="Diagnostic.h" />
     <ClInclude Include="drawing\BlendColourMap.h" />
+    <ClInclude Include="drawing\DepthPlane.h" />
     <ClInclude Include="drawing\Colour.h" />
     <ClInclude Include="drawing\ColourMap.h" />
     <ClInclude Include="drawing\Drawing.h" />
@@ -908,6 +909,7 @@
     <ClCompile Include="drawing\Drawing.Screen.cpp" />
     <ClCompile Include="drawing\Drawing.Sprite.BMP.cpp" />
     <ClCompile Include="drawing\Drawing.Sprite.cpp" />
+    <ClCompile Include="drawing\DepthPlane.cpp" />
     <ClCompile Include="drawing\Drawing.Sprite.RLE.cpp" />
     <ClCompile Include="drawing\Drawing.String.cpp" />
     <ClCompile Include="drawing\Font.cpp" />

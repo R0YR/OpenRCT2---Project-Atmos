@@ -27,15 +27,19 @@ static void FASTCALL DrawBMPSpriteMagnify(RenderTarget& rt, const DrawSpriteArgs
     auto zoom = rt.zoom_level;
     auto dstLineWidth = rt.LineStride();
     auto srcLineWidth = args.SourceImage.width;
+    const auto depth = DepthBlitCtx::Make(rt);
 
     for (int32_t y = 0; y < height; y++)
     {
         auto nextDst = dst + dstLineWidth;
+        const uint16_t rowDepth = depth.plane != nullptr ? depth.RowDepth(rt, dst) : 0;
+        const uint8_t rowSway = depth.plane != nullptr ? depth.RowSway(rt, dst) : 0;
+        const uint16_t rowShadowHeight = depth.plane != nullptr ? depth.RowShadowHeight(rt, dst, rowDepth) : 0;
         for (int32_t x = 0; x < width; x++, dst++)
         {
             PaletteIndex* src = reinterpret_cast<PaletteIndex*>(
                 src0 + (srcLineWidth * zoom.ApplyTo(srcY + y) + zoom.ApplyTo(srcX + x)));
-            BlitPixel<TBlendOp>(src, dst, paletteMap);
+            BlitPixelDepth<TBlendOp>(src, dst, paletteMap, depth, rowDepth, rowSway, rowShadowHeight);
         }
         dst = nextDst;
     }
@@ -54,13 +58,17 @@ static void FASTCALL DrawBMPSpriteMinify(RenderTarget& rt, const DrawSpriteArgs&
     size_t srcLineWidth = zoomLevel.ApplyTo(g1.width);
     size_t dstLineWidth = rt.LineStride();
     uint8_t zoom = zoomLevel.ApplyTo(1);
+    const auto depth = DepthBlitCtx::Make(rt);
     for (; height > 0; height -= zoom)
     {
         auto nextSrc = src + srcLineWidth;
         auto nextDst = dst + dstLineWidth;
+        const uint16_t rowDepth = depth.plane != nullptr ? depth.RowDepth(rt, dst) : 0;
+        const uint8_t rowSway = depth.plane != nullptr ? depth.RowSway(rt, dst) : 0;
+        const uint16_t rowShadowHeight = depth.plane != nullptr ? depth.RowShadowHeight(rt, dst, rowDepth) : 0;
         for (int32_t widthRemaining = width; widthRemaining > 0; widthRemaining -= zoom, src += zoom, dst++)
         {
-            BlitPixel<TBlendOp>(src, dst, paletteMap);
+            BlitPixelDepth<TBlendOp>(src, dst, paletteMap, depth, rowDepth, rowSway, rowShadowHeight);
         }
         src = nextSrc;
         dst = nextDst;

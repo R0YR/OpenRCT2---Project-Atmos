@@ -8,6 +8,7 @@
  *****************************************************************************/
 
 #include "../UiStringIds.h"
+#include "../drawing/Atmosphere.h"
 #include "ShortcutIds.h"
 #include "ShortcutManager.h"
 
@@ -768,6 +769,11 @@ void ShortcutManager::registerDefaultShortcuts()
     });
     registerShortcut(ShortcutId::kInterfaceRotateConstruction, STR_SHORTCUT_ROTATE_CONSTRUCTION_OBJECT, "Z", ShortcutRotateConstructionObject);
     registerShortcut(ShortcutId::kInterfaceCancelConstruction, STR_SHORTCUT_CANCEL_CONSTRUCTION_MODE, "ESCAPE", []() {
+        if (Ui::Atmosphere::CinemaActive())
+        {
+            Ui::Atmosphere::SetCinemaActive(false); // Esc leaves cinema mode first
+            return;
+        }
         if (gLegacyScene != LegacyScene::titleSequence)
         {
             auto* windowMgr = GetWindowManager();
@@ -793,6 +799,11 @@ void ShortcutManager::registerDefaultShortcuts()
     registerShortcut(ShortcutId::kInterfaceIncreaseSpeed, STR_SHORTCUT_INCREASE_GAME_SPEED, "=", ShortcutIncreaseGameSpeed);
     registerShortcut(ShortcutId::kInterfaceToggleToolbars, STR_SHORTCUT_TOGGLE_VISIBILITY_OF_TOOLBARS, ShortcutRemoveTopBottomToolbarToggle);
     registerShortcut(ShortcutId::kInterfaceScreenshot, STR_SHORTCUT_SCREENSHOT, "CTRL+S", []() { gScreenshotCountdown = 2; });
+    registerShortcut(ShortcutId::kInterfaceAtmosphereToggle, "Toggle Atmosphere effects", "SHIFT+A", []() {
+        auto& atmosphere = Ui::Atmosphere::GetSettings();
+        atmosphere.enabled = !atmosphere.enabled;
+        Ui::Atmosphere::NotifySettingsChanged();
+    });
     registerShortcut(ShortcutId::kInterfaceGiantScreenshot, STR_SHORTCUT_GIANT_SCREENSHOT, "CTRL+SHIFT+S", ScreenshotGiant);
     registerShortcut(ShortcutId::kInterfaceLoadGame, STR_LOAD_GAME, "CTRL+L", ShortcutLoadGame);
     registerShortcut(ShortcutId::kInterfaceSaveGame, STR_SAVE_GAME, "CTRL+F10", ShortcutQuickSaveGame);
